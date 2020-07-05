@@ -1,11 +1,11 @@
 from rtools import r2py, py2r
 
 import logging
-import numpy as np  
+import numpy as np
 import pandas as pd
 
 
-def get_proportions_per_channel(adata, sample_key, proportion_key, covariates)
+def get_proportions_per_channel(adata, sample_key, proportion_key, covariates):
 
     prop_df = pd.DataFrame(adata.obs.groupby([sample_key, proportion_key]).size(), columns=['ncell']).reset_index()
 
@@ -14,18 +14,18 @@ def get_proportions_per_channel(adata, sample_key, proportion_key, covariates)
     prop_df.columns = prop_df.columns.astype(str)
     prop_df /= prop_df.sum(1).values[:, None]
     prop_df.index = prop_df.index.astype(str)
-    
+
     assert np.all(np.isin(covariates, adata.obs.columns))
 
     # check if all categoricals are nested in sample_key
     cat_covariates = [x for x in covariates if adata.obs[x].dtype.kind not in 'biufc']
     if cat_covariates:
         assert len(adata.obs[[sample_key] + cat_covariates].drop_duplicates()) == adata.obs[sample_key].nunique()
-    
+
     covar_df = adata.obs.groupby(sample_key)[covariates].agg(**{x: pd.NamedAgg(x, 'first') if x in cat_covariates else pd.NamedAgg(x, 'mean') for x in covariates})
     covar_df = covar_df.loc[prop_df.index.values]
     covar_df.index = covar_df.index.astype(str)
-    
+
     assert np.all(prop_df.index == covar_df.index)
     final_df = pd.concat([prop_df, covar_df], axis=1)
 
@@ -34,21 +34,21 @@ def get_proportions_per_channel(adata, sample_key, proportion_key, covariates)
 
 
 def dirichletreg(adata, sample_key, proportion_key, covariates, formula, onevsrest_category=None, return_reg_input=False):
-    
+
     from rpy2.robjects import r, Formula
     from rpy2.robjects.packages import importr
     from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
-    
+
     dr_df = get_proportions_per_channel(adata, sample_key, proportion_key, covariates)
-    
+
     dr = importr('DirichletReg')
-        
+
     f = Formula(formula)
-    
+
     rpy2_logger.setLevel(logging.ERROR)   # will display errors, but not warnings
     f.environment['y'] = dr.DR_data(py2r(prop_df))
     rpy2_logger.setLevel(logging.WARNING)   # will display errors, but not warnings
-    
+
     if onevsrest_category is None:
         fit = dr.DirichReg(f, py2r(dr_df))
     else:
@@ -59,7 +59,7 @@ def dirichletreg(adata, sample_key, proportion_key, covariates, formula, onevsre
     r.sink(r.tempfile()) # quietly
     u = r.summary(fit)
     r.sink()
-    
+
     if onevsrest_category is None:
         varnames = u.rx2('varnames')
     else:
@@ -73,7 +73,7 @@ def dirichletreg(adata, sample_key, proportion_key, covariates, formula, onevsre
     coef_df['compartment'] = np.repeat(varnames, r2py(u.rx2('n.vars')))
     coef_df['variable'] = rows
     coef_df['significance'] = bin_pval(coef_df.pval)
-    
+
     if onevsrest_category is not None:
         coef_df['coef_type'] = np.repeat(['mean', 'precision'], r2py(u.rx2('n.vars')))
 
@@ -84,7 +84,7 @@ def dirichletreg(adata, sample_key, proportion_key, covariates, formula, onevsre
 
 
 def bin_pval(pvals):
-    return pd.cut(pvals, 
+    return pd.cut(pvals,
                   [0, 0.001, 0.01, 0.05, 0.1, 1],
                   labels=['***', '**', '*', '.', ' '],
                   include_lowest=True)
@@ -93,16 +93,16 @@ def bin_pval(pvals):
 def plot_proportion_barplot(adata, first, second, first_label, second_label, height_scale=1., width_scale=1.):
 
     import mizani
-    import matplotlib.patheffects as pe  
+    import matplotlib.patheffects as pe
     from plotnine import *
-    
+
     df = pd.DataFrame(adata.obs.groupby([first, second], observed=True).size(), columns=['counts']).reset_index()
 
     df[second] = df[second].astype(str)
     df = df.pivot_table(index=first, columns=second, values='counts')
     df = ((df.T / df.sum(1)).T).reset_index()
     df = df.melt(id_vars=first, value_name='counts')
-    
+
     df[second] = pd.Categorical(df[second], categories=reversed(sorted(df[second].unique())))
     df[first]  = pd.Categorical(df[first], categories=reversed(sorted(df[first].unique())))
 
@@ -112,17 +112,17 @@ def plot_proportion_barplot(adata, first, second, first_label, second_label, hei
     cols = {k:v for k,v in zip(adata.obs[second].cat.categories, adata.uns[f'{second}_colors'])}
 
     g = (
-        ggplot(aes(x=first, y='counts', fill=second), data=df) + 
-        geom_bar(position='fill', stat='identity') + 
-        geom_text(aes(label='round(counts*100).astype(int)', y='cumsum_mean'), data=df[df.counts>0.03], 
+        ggplot(aes(x=first, y='counts', fill=second), data=df) +
+        geom_bar(position='fill', stat='identity') +
+        geom_text(aes(label='round(counts*100).astype(int)', y='cumsum_mean'), data=df[df.counts>0.03],
                   color='white', size=8, fontweight='bold',
                   path_effects=(pe.Stroke(linewidth=1, foreground='black'), pe.Normal())) +
         scale_y_continuous(labels=mizani.formatters.percent) +
-        coord_flip() + 
-        theme_minimal() + 
-        theme(figure_size=(8*width_scale, 
-                           0.4*df[first].nunique()*height_scale)) + scale_fill_manual(cols) + 
-        labs(x=first_label, y=second_label) + 
+        coord_flip() +
+        theme_minimal() +
+        theme(figure_size=(8*width_scale,
+                           0.4*df[first].nunique()*height_scale)) + scale_fill_manual(cols) +
+        labs(x=first_label, y=second_label) +
         guides(fill = guide_legend(reverse=True))
     )
 
@@ -130,26 +130,26 @@ def plot_proportion_barplot(adata, first, second, first_label, second_label, hei
 
 
 def plot_proportion_dotplot(adata, sample_key, proportion_key, covariates, fill):
-    
+
     from plotnine import *
-    
+
     adata._sanitize()
     dr_df = get_proportions_per_channel(sample_key, proportion_key, covariates)
-    
-    proportion_df = dr_df.reset_index().melt(id_vars=[sample_key] + covariates, 
-                                             value_vars=adata.obs[proportion_key].cat.categories, 
-                                             var_name='categorical', 
+
+    proportion_df = dr_df.reset_index().melt(id_vars=[sample_key] + covariates,
+                                             value_vars=adata.obs[proportion_key].cat.categories,
+                                             var_name='categorical',
                                              value_name='proportion').set_index(sample_key)
-    
+
     proportion_df['categorical'] = pd.Categorical(proportion_df['categorical'], categories=adata.obs[proportion_key].cat.categories)
-    
+
     g = (
-        ggplot(proportion_df, aes(x='categorical', y='proportion', fill=fill)) + 
-        geom_dotplot(position='dodge', binaxis = "y", stackdir = "center", binwidth = 0.001) + 
-        scale_fill_manual(values=['#4F9B6C', '#3C75AF',  '#EF8636']) + 
-        labs(y='Proportions', x='', fill=fill) + 
-        theme_classic() + 
+        ggplot(proportion_df, aes(x='categorical', y='proportion', fill=fill)) +
+        geom_dotplot(position='dodge', binaxis = "y", stackdir = "center", binwidth = 0.001) +
+        scale_fill_manual(values=['#4F9B6C', '#3C75AF',  '#EF8636']) +
+        labs(y='Proportions', x='', fill=fill) +
+        theme_classic() +
         theme(figure_size=(30,6), axis_text_x = element_text(angle = 90, hjust = 1))
     )
-    
+
     return g

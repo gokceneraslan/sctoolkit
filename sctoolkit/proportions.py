@@ -1,8 +1,10 @@
-from rtools import r2py, py2r
+from .rtools import r2py, py2r
 
 import logging
 import numpy as np
 import pandas as pd
+from plotnine import *
+
 
 
 def get_proportions_per_channel(adata, sample_key, proportion_key, covariates):
@@ -27,9 +29,8 @@ def get_proportions_per_channel(adata, sample_key, proportion_key, covariates):
     covar_df.index = covar_df.index.astype(str)
 
     assert np.all(prop_df.index == covar_df.index)
-    final_df = pd.concat([prop_df, covar_df], axis=1)
 
-    return final_df
+    return prop_df, covar_df
 
 
 
@@ -39,7 +40,8 @@ def dirichletreg(adata, sample_key, proportion_key, covariates, formula, onevsre
     from rpy2.robjects.packages import importr
     from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
 
-    dr_df = get_proportions_per_channel(adata, sample_key, proportion_key, covariates)
+    prop_df, covar_df = get_proportions_per_channel(adata, sample_key, proportion_key, covariates)
+    dr_df = pd.concat([prop_df, covar_df], axis=1)
 
     dr = importr('DirichletReg')
 
@@ -94,7 +96,6 @@ def plot_proportion_barplot(adata, first, second, first_label, second_label, hei
 
     import mizani
     import matplotlib.patheffects as pe
-    from plotnine import *
 
     df = pd.DataFrame(adata.obs.groupby([first, second], observed=True).size(), columns=['counts']).reset_index()
 
@@ -130,8 +131,6 @@ def plot_proportion_barplot(adata, first, second, first_label, second_label, hei
 
 
 def plot_proportion_dotplot(adata, sample_key, proportion_key, covariates, fill):
-
-    from plotnine import *
 
     adata._sanitize()
     dr_df = get_proportions_per_channel(sample_key, proportion_key, covariates)

@@ -168,24 +168,37 @@ def fit_coexpression_model(adata, label, celltype_key, anchor_gene, sample_key, 
     return res
 
 
-def plot_significance_dotplot(df, xcol, ycol, title):
+def plot_significance_dotplot(
+    df,
+    xcol='variable', 
+    ycol='compartment',
+    title='', 
+    size='neglog_pval_adj',
+    fill='coefficient', 
+    color='significant', 
+    color_values=('#808080', '#990E1D'),
+    fill_limit=(-2,2),
+    size_limit=5,
+):
     
-    ct = df.groupby(xcol)['significant'].sum() > 0
-    ct = ct[ct].index
-    df = df[df[xcol].isin(ct)]
+    df = df.copy()
+    
+    #ct = df.groupby(xcol)['significant'].sum() > 0
+    #ct = ct[ct].index
+    #df = df[df[xcol].isin(ct)]
 
-    df.loc[df.Estimate < -2, 'Estimate'] = -2
-    df.loc[df.Estimate > 2, 'Estimate'] = 2
-    df.loc[df.neglog_pval_adj > 5, 'neglog_pval_adj'] = 5
+    df.loc[df[fill] < fill_limit[0], fill] = fill_limit[0]
+    df.loc[df[fill] > fill_limit[1], fill] = fill_limit[1]
+    df.loc[df[size] > size_limit, size] = size_limit
 
-    df[ycol] = pd.Categorical(df[ycol], categories = reversed(sorted(df[ycol])))
-    limit = max(df.Estimate.abs()) * np.array([-1, 1])
+    df[ycol] = pd.Categorical(df[ycol], categories = reversed(sorted(df[ycol].unique())))
+    limit = max(df[fill].abs()) * np.array([-1, 1])
 
     g = (
         ggplot(aes(x=xcol, y=ycol), data=df) +
-        geom_point(aes(size='neglog_pval_adj', fill='Estimate', color='significant'))+
+        geom_point(aes(size=size, fill=fill, color=color))+
         scale_fill_distiller(type='div', limits=limit, name='Effect size') + 
-        scale_color_manual(values=('#808080', '#990E1D')) + 
+        scale_color_manual(values=color_values) + 
         labs(size = "-log10(adj. P value)", y=ycol, x=xcol, title=title) +
         guides(size = guide_legend(reverse=True)) +
         theme_bw() +

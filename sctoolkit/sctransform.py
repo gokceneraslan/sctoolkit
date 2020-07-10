@@ -6,7 +6,7 @@ from typing import Optional, Sequence
 from anndata import AnnData
 
 from scanpy.preprocessing import filter_genes
-from rtools import (
+from .rtools import (
     anndata2ri_check,
     py2r,
     r2py,

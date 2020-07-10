@@ -25,6 +25,7 @@ def sctransform(
     n_top_genes: int = 3000,
     min_cells: int = 5,
     store_residuals: bool = False,
+    correct_counts: bool = True,
     verbose: bool = True,
     inplace: bool = True,
     seed: int = 0,
@@ -59,6 +60,8 @@ def sctransform(
         Store Pearson residuals in adata.layers['sct_residuals']. These values represent
         batch corrected and depth-normalized gene expression values. Due to potential
         high memory use for big matrices, they are not stored by default.
+    correct_counts
+        Store corrected couunts in adata.layers['sct_corrected']. Default is True.
     verbose
         Show progress bar during normalization.
     inplace
@@ -147,9 +150,11 @@ def sctransform(
     )
 
     res_var = r2py(sct.get_residual_var(vst_out, mat))
-    corrected = r2py(sct.correct_counts(vst_out, mat)).T
 
-    adata.layers['sct_corrected'] = corrected
+    if correct_counts:
+        corrected = r2py(sct.correct_counts(vst_out, mat)).T
+        adata.layers['sct_corrected'] = corrected
+
     adata.var['highly_variable_sct_residual_var'] = res_var
 
     if store_residuals:

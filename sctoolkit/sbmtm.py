@@ -323,7 +323,7 @@ class sbmtm():
 
             else:
 
-                runs = Parallel(n_jobs=n_jobs)(delayed(gt.minimize_nested_blockmodel_dl)(g,
+                runs = Parallel(n_init_jobs=n_init_jobs)(delayed(gt.minimize_nested_blockmodel_dl)(g,
                                                                                          deg_corr=True,
                                                                                          overlap=overlap,
                                                                                          B_min=B_min,

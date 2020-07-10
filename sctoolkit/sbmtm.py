@@ -290,8 +290,6 @@ class sbmtm():
             state_args = {'clabel': clabel, 'pclabel': clabel}
             if "count" in g.ep:
                 state_args["eweight"] = g.ep.count
-            if state_kwargs is not None:
-                state_args.update(state_kwargs)
             ## the inference
             mdl = np.inf  ##
 

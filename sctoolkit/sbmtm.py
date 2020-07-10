@@ -328,8 +328,7 @@ class sbmtm():
                                                                                          overlap=overlap,
                                                                                          B_min=B_min,
                                                                                          state_args=state_args,
-                                                                                         verbose=verbose,
-                                                                                         **kwds)
+                                                                                         verbose=verbose,)
                                                for _ in range(n_init))
                 for i_n_init in range(n_init):
                     state_tmp = runs[i_n_init]

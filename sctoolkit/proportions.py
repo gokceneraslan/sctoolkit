@@ -143,10 +143,11 @@ def plot_proportion_barplot(adata, first, second, first_label, second_label, hei
     return g
 
 
-def plot_proportion_dotplot(adata, sample_key, proportion_key, covariates, fill):
+def plot_proportions(adata, sample_key, proportion_key, covariates, fill, return_input_df=False, kind='boxplot', dotplot_binwidth=0.001, width_scale=1., height_scale=1.):
 
     adata._sanitize()
-    dr_df = get_proportions_per_channel(sample_key, proportion_key, covariates)
+    p, c = get_proportions_per_channel(adata, sample_key, proportion_key, covariates)
+    dr_df = pd.concat([p, c], axis=1)
 
     proportion_df = dr_df.reset_index().melt(id_vars=[sample_key] + covariates,
                                              value_vars=adata.obs[proportion_key].cat.categories,
@@ -154,14 +155,23 @@ def plot_proportion_dotplot(adata, sample_key, proportion_key, covariates, fill)
                                              value_name='proportion').set_index(sample_key)
 
     proportion_df['categorical'] = pd.Categorical(proportion_df['categorical'], categories=adata.obs[proportion_key].cat.categories)
+    color_dict = {k:v for k,v in zip(adata.obs[fill].cat.categories, adata.uns[f'{fill}_colors'])}
+
+    if kind == 'dotplot':
+        geom = geom_dotplot(position='dodge', binaxis = "y", stackdir = "center", binwidth = dotplot_binwidth)
+    else:
+        geom = geom_boxplot()
 
     g = (
         ggplot(proportion_df, aes(x='categorical', y='proportion', fill=fill)) +
-        geom_dotplot(position='dodge', binaxis = "y", stackdir = "center", binwidth = 0.001) +
-        scale_fill_manual(values=['#4F9B6C', '#3C75AF',  '#EF8636']) +
+        geom +
+        scale_fill_manual(values=color_dict) +
         labs(y='Proportions', x='', fill=fill) +
         theme_classic() +
-        theme(figure_size=(30,6), axis_text_x = element_text(angle = 90, hjust = 1))
+        theme(figure_size=(8*width_scale,6*height_scale), axis_text_x = element_text(angle = 45, hjust=1.))
     )
 
-    return g
+    if return_input_df:
+        return g, proportion_df
+    else:
+        return g

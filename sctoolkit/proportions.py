@@ -120,7 +120,7 @@ def plot_proportion_barplot(adata, first, second, first_label, second_label, hei
         df[second]  = pd.Categorical(df[second], categories=reversed(sorted(df[second].unique())))
 
 
-    df['cumsum'] = df.groupby(first, observed=True)['counts'].transform(pd.Series.cumsum)
+    df['cumsum'] = df.sort_values([first, second], ascending=False).groupby(first, observed=True)['counts'].transform(pd.Series.cumsum)
     df['cumsum_mean'] = df['cumsum'] - df['counts'] + (df['counts']/2)
 
     cols = {k:v for k,v in zip(adata.obs[second].cat.categories, adata.uns[f'{second}_colors'])}

@@ -28,6 +28,10 @@ def get_proportions_per_channel(adata, sample_key, proportion_key, covariates):
     covar_df = covar_df.loc[prop_df.index.values]
     covar_df.index = covar_df.index.astype(str)
 
+    for c in cat_covariates:
+        if adata.obs[c].dtype.name == 'category':
+            covar_df[c] = pd.Categorical(covar_df[c], categories=adata.obs[c].cat.categories)
+
     assert np.all(prop_df.index == covar_df.index)
 
     return prop_df, covar_df
@@ -40,6 +44,7 @@ def dirichletreg(adata, sample_key, proportion_key, covariates, formula, onevsre
     from rpy2.robjects.packages import importr
     from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
 
+    adata._sanitize()
     prop_df, covar_df = get_proportions_per_channel(adata, sample_key, proportion_key, covariates)
     dr_df = pd.concat([prop_df, covar_df], axis=1)
 
@@ -104,8 +109,16 @@ def plot_proportion_barplot(adata, first, second, first_label, second_label, hei
     df = ((df.T / df.sum(1)).T).reset_index()
     df = df.melt(id_vars=first, value_name='counts')
 
-    df[second] = pd.Categorical(df[second], categories=reversed(sorted(df[second].unique())))
-    df[first]  = pd.Categorical(df[first], categories=reversed(sorted(df[first].unique())))
+    if adata.obs[first].dtype.name == 'category':
+        df[first]  = pd.Categorical(df[first], categories=reversed(adata.obs[first].cat.categories))
+    else:
+        df[first]  = pd.Categorical(df[first], categories=reversed(sorted(df[first].unique())))
+        
+    if adata.obs[second].dtype.name == 'category':
+        df[second]  = pd.Categorical(df[second], categories=reversed(adata.obs[second].cat.categories))
+    else:
+        df[second]  = pd.Categorical(df[second], categories=reversed(sorted(df[second].unique())))
+
 
     df['cumsum'] = df.groupby(first, observed=True)['counts'].transform(pd.Series.cumsum)
     df['cumsum_mean'] = df['cumsum'] - df['counts'] + (df['counts']/2)

@@ -1,13 +1,10 @@
 import scanpy as sc
 import pandas as pd
 import numpy as np
-import scipy
-from pathlib import Path
-from tqdm.auto import tqdm
 from joblib import Parallel, delayed
-from statsmodels.stats.multitest import multipletests
 
 # R integration
+
 from rpy2.robjects.packages import importr
 from rpy2.robjects.conversion import localconverter
 from rpy2.robjects import pandas2ri, numpy2ri, r, Formula
@@ -113,6 +110,7 @@ def fit_lme_adata(adata, genes, formula, obs_features, random_effect, family='ga
 
 
 def fit_coexpression_model(adata, label, celltype_key, anchor_gene, sample_key, subsample_ref=True, n_jobs=20):
+    from tqdm import tqdm
 
     adata = adata.copy()
     adata.X = (adata.X>0).astype(int) # binarize for binomial GLMM
@@ -180,6 +178,8 @@ def plot_significance_dotplot(
     fill_limit=(-2,2),
     size_limit=5,
 ):
+
+    from statsmodels.stats.multitest import multipletests
     
     df = df.copy()
     

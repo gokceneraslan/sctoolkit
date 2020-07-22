@@ -100,7 +100,20 @@ def bin_pval(pvals):
                   include_lowest=True)
 
 
-def plot_proportion_barplot(adata, yaxis, fill, fill_breakdown=None, yaxis_label=None, fill_label=None, percent_limit=2., show_percent=True, height_scale=1., width_scale=1.):
+def plot_proportion_barplot(
+    adata,
+    yaxis,
+    fill, 
+    fill_breakdown=None,
+    yaxis_label=None,
+    fill_label=None,
+    percent_limit=5., 
+    show_percent=True,
+    height_scale=1., 
+    width_scale=1.,
+    legend_position=(-0.3, 0.5),
+    return_df=False,
+):
 
     import mizani
     import matplotlib.patheffects as pe
@@ -111,31 +124,40 @@ def plot_proportion_barplot(adata, yaxis, fill, fill_breakdown=None, yaxis_label
     adata._sanitize()
 
     fill_dict = {k:v for k,v in zip(adata.obs[fill].cat.categories, adata.uns[f'{fill}_colors'])}
-
+    
     df_level0 = pd.DataFrame(adata.obs.groupby([yaxis], observed=True).size(), columns=['counts'])
     df_level1 = pd.DataFrame(adata.obs.groupby([yaxis, fill] + ([fill_breakdown] if fill_breakdown else []), observed=True).size(), columns=['counts'])
     df = df_level1.div(df_level0, level=yaxis).reset_index()
-
+    
     df[fill]  = pd.Categorical(df[fill], categories=reversed(adata.obs[fill].cat.categories))
     df[yaxis] = pd.Categorical(df[yaxis], categories=reversed(adata.obs[yaxis].cat.categories))
 
     df['counts_coarse'] = df.groupby([yaxis, fill], observed=True)['counts'].transform('sum')
     df['counts_coarse_round_percent'] = (df.counts_coarse*100).round().astype(int)
+
     df['_show_text'] = df.counts_coarse_round_percent >= percent_limit
     df['_show_breakdown'] = (df.counts_coarse_round_percent >= percent_limit) if fill_breakdown else False
-
+        
+    # collapse breakdown of small groups
+    if fill_breakdown:
+        df = df[(~df.duplicated([yaxis, fill])) | (df._show_breakdown)].copy()
+        df.loc[~df._show_breakdown, 'counts'] = df.loc[~df._show_breakdown, 'counts_coarse']
+        df['_show_breakdown'] = True
+        
     cs = df.sort_values([yaxis, fill], ascending=False).drop_duplicates([yaxis, fill]).groupby(yaxis, observed=True)['counts_coarse'].transform(pd.Series.cumsum)
-    df['cumsum_mean'] = cs - df['counts_coarse'] + (df['counts_coarse']/2)
+    df['cumsum_mean'] = cs - df['counts_coarse'] + (df['counts_coarse']/2)        
 
     g = (
         ggplot(aes(x=yaxis, y='counts', fill=fill, group=fill), data=df) +
-        geom_bar(position='fill', stat='identity', mapping=aes(color='_show_breakdown'), size=0.1) +
+        geom_bar(position='fill', stat='identity', mapping=aes(color='_show_breakdown'), size=0.08) +
         scale_y_continuous(labels=mizani.formatters.percent) +
         coord_flip() +
         theme_minimal() +
-        theme(figure_size=(8*width_scale, 0.4*df[yaxis].nunique()*height_scale)) +
+        theme(figure_size=(8*width_scale, 
+                           0.4*df[yaxis].nunique()*height_scale),
+             legend_position=legend_position) + 
         scale_color_manual(values={True: 'black', False: 'none'}) +
-        scale_fill_manual(values=fill_dict) +
+        scale_fill_manual(values=fill_dict) +        
         labs(x=yaxis_label, y=fill_label) +
         guides(fill = guide_legend(reverse=True), color=None)
     )
@@ -145,7 +167,130 @@ def plot_proportion_barplot(adata, yaxis, fill, fill_breakdown=None, yaxis_label
                   color='white', size=8, fontweight='bold',
                   path_effects=(pe.Stroke(linewidth=1, foreground='black'), pe.Normal()))
 
+    if return_df:
+        return g, df
+    else:
+        return g
+
+    
+def plot_proportion_barplot_cellcounts(
+    adata,
+    yaxis,
+    height_scale=1., 
+    width_scale=1.,
+):
+
+    import mizani
+    import matplotlib.patheffects as pe
+    
+    adata._sanitize()
+
+    df = pd.DataFrame(adata.obs.groupby([yaxis], observed=True).size(), columns=['ncell']).reset_index()
+    df['counts'] = 1
+    df[yaxis] = pd.Categorical(df[yaxis], categories=reversed(adata.obs[yaxis].cat.categories))    
+    
+
+    g = (
+        ggplot(aes(x=yaxis, y='counts', fill='ncell.astype(float)'), data=df) +
+        geom_col() +
+        coord_flip() +
+        theme_minimal() +
+        theme(figure_size=(1.*width_scale, 
+                           0.4*df[yaxis].nunique()*height_scale),
+              axis_text_y=element_blank()) +  
+        labs(x=None, y='Cell counts', fill='Cell counts') +
+        geom_text(aes(label='ncell', y=0.5),
+                  color='white', size=8, fontweight='bold',
+                  path_effects=(pe.Stroke(linewidth=1, foreground='black'), pe.Normal())) + 
+        scale_fill_continuous(trans='log10', cmap_name='magma')
+    )
+
     return g
+
+
+def plot_proportion_barplot_single_categorical(
+    adata,
+    yaxis,
+    fill,
+    height_scale=1., 
+    width_scale=1.,
+):
+
+    import mizani
+    import matplotlib.patheffects as pe
+    
+    adata._sanitize()
+
+    fill_dict = {k:v for k,v in zip(adata.obs[fill].cat.categories, adata.uns[f'{fill}_colors'])}
+    
+    df = adata.obs[[yaxis, fill]].drop_duplicates().reset_index()
+    df['counts'] = 1
+    df[yaxis] = pd.Categorical(df[yaxis], categories=reversed(adata.obs[yaxis].cat.categories))    
+
+    g = (
+        ggplot(aes(x=yaxis, y='counts', fill=fill), data=df) +
+        geom_col() +
+        coord_flip() +
+        theme_minimal() +
+        theme(figure_size=(1.*width_scale, 
+                           0.4*df[yaxis].nunique()*height_scale),
+              axis_text_y=element_blank()) +  
+        labs(x=None, y=fill, fill=fill) +
+        scale_fill_manual(values=fill_dict)
+    )
+
+    return g
+
+
+def merge_ggplots(*plots, units, figsize):
+    
+    # Empty plotnine figure to place the subplots on. Needs junk data (for backend "copy" reasons).
+    fig = (ggplot()+geom_blank(data=data.diamonds)+theme_void() + theme(figure_size=figsize)).draw()
+
+    # Create gridspec for adding subpanels to the blank figure
+    gs = gridspec.GridSpec(1,np.sum(units))
+    prev = 0
+    for p, u in zip(plots, np.cumsum(units)):
+        ax = fig.add_subplot(gs[0, prev:u])
+        prev = u
+        _ = p._draw_using_figure(fig, [ax])
+
+    return fig
+
+
+def plot_proportion_barplot_with_ncells(
+    adata,
+    yaxis,
+    fill, 
+    fill_breakdown=None,
+    yaxis_label=None,
+    fill_label=None,
+    percent_limit=5., 
+    show_percent=True,
+    height_scale=1., 
+    width_scale=1.,
+    legend_position=(-0.2, 0.5),
+):
+    
+    g1, df = plot_proportion_barplot(
+        adata,
+        yaxis,
+        fill, 
+        fill_breakdown=fill_breakdown,
+        yaxis_label=yaxis_label,
+        fill_label=fill_label,
+        percent_limit=percent_limit, 
+        show_percent=show_percent,
+        height_scale=height_scale, 
+        width_scale=width_scale,
+        legend_position=legend_position,
+        return_df=True,
+    )
+    
+    g2 = plot_proportion_barplot_cellcounts(adata, yaxis)
+    figsize = (8*width_scale*1.5, 0.4*df[yaxis].nunique()*height_scale)
+    
+    return merge_ggplots(g1, g2, units=[9, 1], figsize=figsize)
 
 
 def plot_proportions(adata, sample_key, proportion_key, covariates, fill, return_input_df=False, kind='boxplot', dotplot_binwidth=0.001, width_scale=1., height_scale=1.):

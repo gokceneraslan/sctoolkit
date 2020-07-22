@@ -216,7 +216,7 @@ def plot_proportion_barplot_single_categorical(
     fill,
     height_scale=1., 
     width_scale=1.,
-    legend_position=None,)
+    legend_position=None,
 ):
 
     import mizani

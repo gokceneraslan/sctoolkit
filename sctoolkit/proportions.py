@@ -4,6 +4,8 @@ import logging
 import numpy as np
 import pandas as pd
 from plotnine import *
+from plotnine.data import diamonds as ddata
+import matplotlib.gridspec as gridspec
 
 
 
@@ -214,6 +216,7 @@ def plot_proportion_barplot_single_categorical(
     fill,
     height_scale=1., 
     width_scale=1.,
+    legend_position=None,)
 ):
 
     import mizani
@@ -234,7 +237,8 @@ def plot_proportion_barplot_single_categorical(
         theme_minimal() +
         theme(figure_size=(1.*width_scale, 
                            0.4*df[yaxis].nunique()*height_scale),
-              axis_text_y=element_blank()) +  
+              axis_text_y=element_blank(),
+              legend_position=legend_position) +  
         labs(x=None, y=fill, fill=fill) +
         scale_fill_manual(values=fill_dict)
     )
@@ -245,7 +249,7 @@ def plot_proportion_barplot_single_categorical(
 def merge_ggplots(*plots, units, figsize):
     
     # Empty plotnine figure to place the subplots on. Needs junk data (for backend "copy" reasons).
-    fig = (ggplot()+geom_blank(data=data.diamonds)+theme_void() + theme(figure_size=figsize)).draw()
+    fig = (ggplot()+geom_blank(data=ddata)+theme_void() + theme(figure_size=figsize)).draw()
 
     # Create gridspec for adding subpanels to the blank figure
     gs = gridspec.GridSpec(1,np.sum(units))

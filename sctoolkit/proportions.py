@@ -7,7 +7,7 @@ from plotnine import *
 
 
 
-def get_proportions_per_channel(adata, sample_key, proportion_key, covariates):
+def get_proportions_per_channel(adata, sample_key, proportion_key, covariates=None):
 
     prop_df = pd.DataFrame(adata.obs.groupby([sample_key, proportion_key]).size(), columns=['ncell']).reset_index()
 
@@ -17,24 +17,27 @@ def get_proportions_per_channel(adata, sample_key, proportion_key, covariates):
     prop_df /= prop_df.sum(1).values[:, None]
     prop_df.index = prop_df.index.astype(str)
 
-    assert np.all(np.isin(covariates, adata.obs.columns))
+    if covariates is not None:
+        assert np.all(np.isin(covariates, adata.obs.columns))
 
-    # check if all categoricals are nested in sample_key
-    cat_covariates = [x for x in covariates if adata.obs[x].dtype.kind not in 'biufc']
-    if cat_covariates:
-        assert len(adata.obs[[sample_key] + cat_covariates].drop_duplicates()) == adata.obs[sample_key].nunique()
+        # check if all categoricals are nested in sample_key
+        cat_covariates = [x for x in covariates if adata.obs[x].dtype.kind not in 'biufc']
+        if cat_covariates:
+            assert len(adata.obs[[sample_key] + cat_covariates].drop_duplicates()) == adata.obs[sample_key].nunique()
 
-    covar_df = adata.obs.groupby(sample_key)[covariates].agg(**{x: pd.NamedAgg(x, 'first') if x in cat_covariates else pd.NamedAgg(x, 'mean') for x in covariates})
-    covar_df = covar_df.loc[prop_df.index.values]
-    covar_df.index = covar_df.index.astype(str)
+        covar_df = adata.obs.groupby(sample_key)[covariates].agg(**{x: pd.NamedAgg(x, 'first') if x in cat_covariates else pd.NamedAgg(x, 'mean') for x in covariates})
+        covar_df = covar_df.loc[prop_df.index.values]
+        covar_df.index = covar_df.index.astype(str)
 
-    for c in cat_covariates:
-        if adata.obs[c].dtype.name == 'category':
-            covar_df[c] = pd.Categorical(covar_df[c], categories=adata.obs[c].cat.categories)
+        for c in cat_covariates:
+            if adata.obs[c].dtype.name == 'category':
+                covar_df[c] = pd.Categorical(covar_df[c], categories=adata.obs[c].cat.categories)
 
-    assert np.all(prop_df.index == covar_df.index)
+        assert np.all(prop_df.index == covar_df.index)
 
-    return prop_df, covar_df
+        return prop_df, covar_df
+    else:
+        return prop_df
 
 
 
@@ -97,48 +100,50 @@ def bin_pval(pvals):
                   include_lowest=True)
 
 
-def plot_proportion_barplot(adata, first, second, first_label, second_label, height_scale=1., width_scale=1.):
+def plot_proportion_barplot(adata, yaxis, fill, fill_breakdown=None, yaxis_label=None, fill_label=None, percent_limit=2., show_percent=True, height_scale=1., width_scale=1.):
 
     import mizani
     import matplotlib.patheffects as pe
 
-    df = pd.DataFrame(adata.obs.groupby([first, second], observed=True).size(), columns=['counts']).reset_index()
+    if yaxis_label is None: yaxis_label = yaxis
+    if fill_label is None: fill_label = fill
 
-    df[second] = df[second].astype(str)
-    df = df.pivot_table(index=first, columns=second, values='counts')
-    df = ((df.T / df.sum(1)).T).reset_index()
-    df = df.melt(id_vars=first, value_name='counts')
+    adata._sanitize()
 
-    if adata.obs[first].dtype.name == 'category':
-        df[first]  = pd.Categorical(df[first], categories=reversed(adata.obs[first].cat.categories))
-    else:
-        df[first]  = pd.Categorical(df[first], categories=reversed(sorted(df[first].unique())))
-        
-    if adata.obs[second].dtype.name == 'category':
-        df[second]  = pd.Categorical(df[second], categories=reversed(adata.obs[second].cat.categories))
-    else:
-        df[second]  = pd.Categorical(df[second], categories=reversed(sorted(df[second].unique())))
+    fill_dict = {k:v for k,v in zip(adata.obs[fill].cat.categories, adata.uns[f'{fill}_colors'])}
 
+    df_level0 = pd.DataFrame(adata.obs.groupby([yaxis], observed=True).size(), columns=['counts'])
+    df_level1 = pd.DataFrame(adata.obs.groupby([yaxis, fill] + ([fill_breakdown] if fill_breakdown else []), observed=True).size(), columns=['counts'])
+    df = df_level1.div(df_level0, level=yaxis).reset_index()
 
-    df['cumsum'] = df.sort_values([first, second], ascending=False).groupby(first, observed=True)['counts'].transform(pd.Series.cumsum)
-    df['cumsum_mean'] = df['cumsum'] - df['counts'] + (df['counts']/2)
+    df[fill]  = pd.Categorical(df[fill], categories=reversed(adata.obs[fill].cat.categories))
+    df[yaxis] = pd.Categorical(df[yaxis], categories=reversed(adata.obs[yaxis].cat.categories))
 
-    cols = {k:v for k,v in zip(adata.obs[second].cat.categories, adata.uns[f'{second}_colors'])}
+    df['counts_coarse'] = df.groupby([yaxis, fill], observed=True)['counts'].transform('sum')
+    df['counts_coarse_round_percent'] = (df.counts_coarse*100).round().astype(int)
+    df['_show_text'] = df.counts_coarse_round_percent >= percent_limit
+    df['_show_breakdown'] = (df.counts_coarse_round_percent >= percent_limit) if fill_breakdown else False
+
+    cs = df.sort_values([yaxis, fill], ascending=False).drop_duplicates([yaxis, fill]).groupby(yaxis, observed=True)['counts_coarse'].transform(pd.Series.cumsum)
+    df['cumsum_mean'] = cs - df['counts_coarse'] + (df['counts_coarse']/2)
 
     g = (
-        ggplot(aes(x=first, y='counts', fill=second), data=df) +
-        geom_bar(position='fill', stat='identity') +
-        geom_text(aes(label='round(counts*100).astype(int)', y='cumsum_mean'), data=df[df.counts>0.03],
-                  color='white', size=8, fontweight='bold',
-                  path_effects=(pe.Stroke(linewidth=1, foreground='black'), pe.Normal())) +
+        ggplot(aes(x=yaxis, y='counts', fill=fill, group=fill), data=df) +
+        geom_bar(position='fill', stat='identity', mapping=aes(color='_show_breakdown'), size=0.1) +
         scale_y_continuous(labels=mizani.formatters.percent) +
         coord_flip() +
         theme_minimal() +
-        theme(figure_size=(8*width_scale,
-                           0.4*df[first].nunique()*height_scale)) + scale_fill_manual(cols) +
-        labs(x=first_label, y=second_label) +
-        guides(fill = guide_legend(reverse=True))
+        theme(figure_size=(8*width_scale, 0.4*df[yaxis].nunique()*height_scale)) +
+        scale_color_manual(values={True: 'black', False: 'none'}) +
+        scale_fill_manual(values=fill_dict) +
+        labs(x=yaxis_label, y=fill_label) +
+        guides(fill = guide_legend(reverse=True), color=None)
     )
+
+    if show_percent:
+        g += geom_text(aes(label='counts_coarse_round_percent', y='cumsum_mean'), data=df[df._show_text],
+                  color='white', size=8, fontweight='bold',
+                  path_effects=(pe.Stroke(linewidth=1, foreground='black'), pe.Normal()))
 
     return g
 

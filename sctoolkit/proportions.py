@@ -180,6 +180,7 @@ def plot_proportion_barplot_cellcounts(
     yaxis,
     height_scale=1., 
     width_scale=1.,
+    legend_position=None,
 ):
 
     import mizani
@@ -199,7 +200,8 @@ def plot_proportion_barplot_cellcounts(
         theme_minimal() +
         theme(figure_size=(1.*width_scale, 
                            0.4*df[yaxis].nunique()*height_scale),
-              axis_text_y=element_blank()) +  
+              axis_text_y=element_blank(),
+              legend_position=legend_position) +  
         labs(x=None, y='Cell counts', fill='Cell counts') +
         geom_text(aes(label='ncell', y=0.5),
                   color='white', size=8, fontweight='bold',

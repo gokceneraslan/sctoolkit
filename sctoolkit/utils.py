@@ -23,9 +23,9 @@ def get_expression_per_group(ad, genes, groupby, threshold=0, use_raw=False, lay
     grouped = genedf.groupby(groupby, observed=True)
     percent_scaler = 100 if scale_percent else 1
     
-    exp = grouped.agg(lambda x: np.nanmean(x[x>thres])).fillna(0)
+    exp = grouped.agg(lambda x: np.nanmean(x[x>threshold])).fillna(0)
     exp.index.name = None
-    percent = grouped.agg(lambda x: np.mean(x>thres)*percent_scaler).fillna(0)
+    percent = grouped.agg(lambda x: np.mean(x>threshold)*percent_scaler).fillna(0)
     percent.index.name = None    
 
     if long_form:

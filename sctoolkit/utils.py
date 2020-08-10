@@ -1,6 +1,7 @@
 import pandas as pd
 import scanpy as sc
 import numpy as np
+from plotnine import *
 
 def get_expression_per_group(ad, genes, groupby, threshold=0, use_raw=False, layer=None, long_form=True, scale_percent=True):
     
@@ -36,3 +37,57 @@ def get_expression_per_group(ad, genes, groupby, threshold=0, use_raw=False, lay
         return df
     else:
         return exp.T, percent.T
+
+
+
+def plot_significance_dotplot(
+    df,
+    xcol='variable', 
+    ycol='compartment',
+    title='', 
+    size='neglog_pval_adj',
+    fill='coefficient', 
+    color='significant', 
+    color_values=('#808080', '#990E1D'),
+    fill_limit=(-2,2),
+    size_limit=10,
+    dot_size_limit=10,
+    width_scale=1.0,
+    height_scale=1.0,
+):
+
+    from statsmodels.stats.multitest import multipletests
+    
+    df = df.copy()
+    
+    #ct = df.groupby(xcol)['significant'].sum() > 0
+    #ct = ct[ct].index
+    #df = df[df[xcol].isin(ct)]
+
+    df.loc[df[fill] < fill_limit[0], fill] = fill_limit[0]
+    df.loc[df[fill] > fill_limit[1], fill] = fill_limit[1]
+    df.loc[df[size] > size_limit, size] = size_limit
+
+    df[ycol] = pd.Categorical(df[ycol], categories = reversed(sorted(df[ycol].unique())))
+    limit = max(df[fill].abs()) * np.array([-1, 1])
+
+    g = (
+        ggplot(aes(x=xcol, y=ycol), data=df) +
+        geom_point(aes(size=size, fill=fill, color=color))+
+        scale_fill_distiller(type='div', limits=limit, name='Effect size') + 
+        scale_color_manual(values=color_values) + 
+        labs(size = "-log10(adj. P value)", y=ycol, x=xcol, title=title) +
+        guides(size = guide_legend(reverse=True)) +
+        theme_bw() +
+        scale_size(range = (1,dot_size_limit)) +
+        scale_y_discrete(drop=False) +
+        #scale_x_discrete(drop=False) +
+        theme(
+          figure_size=(9*width_scale,12*height_scale),
+          legend_key=element_blank(),
+          axis_text_x = element_text(rotation=45, hjust=1.),
+        )
+    )
+
+    return g
+

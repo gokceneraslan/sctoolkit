@@ -2,6 +2,7 @@ import scanpy as sc
 import pandas as pd
 import numpy as np
 from joblib import Parallel, delayed
+from tqdm.auto import tqdm
 
 # R integration
 
@@ -87,7 +88,7 @@ def fit_lme_adata(adata, genes, formula, obs_features, random_effect, family='ga
                 random_effect = False
 
     if n_jobs == 1:
-        para_result = [_fit(formula, x, adata, obs_features, use_raw, family,random_effect) for x in (genes)]
+        para_result = [_fit(formula, x, adata, obs_features, use_raw, family,random_effect) for x in tqdm(genes)]
     else:    
         para_result = Parallel(n_jobs=n_jobs)(delayed(_fit)(formula, 
                                                             x, 
@@ -95,7 +96,7 @@ def fit_lme_adata(adata, genes, formula, obs_features, random_effect, family='ga
                                                             obs_features, 
                                                             use_raw, 
                                                             family,
-                                                            random_effect) for x in (genes))
+                                                            random_effect) for x in tqdm(genes))
     
     coef_df = {k:v[0] for k, v in zip(genes, para_result) if v[0] is not None}
     anova_df = {k:v[1] for k, v in zip(genes, para_result) if v[1] is not None}   
@@ -164,52 +165,3 @@ def fit_coexpression_model(adata, label, celltype_key, anchor_gene, sample_key, 
     res = res[res.fixed_effect == f'bin{anchor_gene}'].sort_values('pval_adj').reset_index(drop=True).assign(dataset=label)
     
     return res
-
-
-def plot_significance_dotplot(
-    df,
-    xcol='variable', 
-    ycol='compartment',
-    title='', 
-    size='neglog_pval_adj',
-    fill='coefficient', 
-    color='significant', 
-    color_values=('#808080', '#990E1D'),
-    fill_limit=(-2,2),
-    size_limit=5,
-):
-
-    from statsmodels.stats.multitest import multipletests
-    
-    df = df.copy()
-    
-    #ct = df.groupby(xcol)['significant'].sum() > 0
-    #ct = ct[ct].index
-    #df = df[df[xcol].isin(ct)]
-
-    df.loc[df[fill] < fill_limit[0], fill] = fill_limit[0]
-    df.loc[df[fill] > fill_limit[1], fill] = fill_limit[1]
-    df.loc[df[size] > size_limit, size] = size_limit
-
-    df[ycol] = pd.Categorical(df[ycol], categories = reversed(sorted(df[ycol].unique())))
-    limit = max(df[fill].abs()) * np.array([-1, 1])
-
-    g = (
-        ggplot(aes(x=xcol, y=ycol), data=df) +
-        geom_point(aes(size=size, fill=fill, color=color))+
-        scale_fill_distiller(type='div', limits=limit, name='Effect size') + 
-        scale_color_manual(values=color_values) + 
-        labs(size = "-log10(adj. P value)", y=ycol, x=xcol, title=title) +
-        guides(size = guide_legend(reverse=True)) +
-        theme_bw() +
-        scale_size(range = (1,10)) +
-        scale_y_discrete(drop=False) +
-        #scale_x_discrete(drop=False) +
-        theme(
-          figure_size=(9,12),
-          legend_key=element_blank(),
-          axis_text_x = element_text(rotation=45, hjust=1.),
-        )
-    )
-
-    return g

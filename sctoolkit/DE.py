@@ -33,13 +33,13 @@ def fit_lme(formula, df, family='gaussian', random_effect=True, **fit_kwargs):
                 fit = stats.lm(f, df, **fit_kwargs)
         elif family in ('binomial', 'poisson'):
             if random_effect:
-                #control = lme4.glmerControl(**{'optimizer': 'nloptwrap', 
-                #                               'calc.derivs': True,
-                #                               'check.rankX': 'silent.drop.cols',
-                #                               'check.conv.singular': r('lme4::.makeCC')(action = "ignore",  tol = 1e-4)})
-
-                control = lme4.glmerControl(**{'check.rankX': 'silent.drop.cols',
+                control = lme4.glmerControl(**{'optimizer': 'nloptwrap', 
+                                               'calc.derivs': True,
+                                               'check.rankX': 'silent.drop.cols',
                                                'check.conv.singular': r('lme4::.makeCC')(action = "ignore",  tol = 1e-4)})
+
+                #control = lme4.glmerControl(**{'check.rankX': 'silent.drop.cols',
+                #                               'check.conv.singular': r('lme4::.makeCC')(action = "ignore",  tol = 1e-4)})
 
                 fit = lme4.glmer(f, df, control=control, family=family, **fit_kwargs)
 

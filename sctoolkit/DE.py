@@ -14,7 +14,7 @@ import rpy2.robjects as ro
 from rpy2.rinterface_lib.embedded import RRuntimeError
 
 
-def fit_lme(formula, df, family='gaussian', random_effect=True, **fit_kwargs):
+def fit_lme(formula, df, family='gaussian', optimizer='nloptwrap', random_effect=True, **fit_kwargs):
     f = Formula(formula)
     
     lme4 = importr('lme4')
@@ -33,13 +33,14 @@ def fit_lme(formula, df, family='gaussian', random_effect=True, **fit_kwargs):
                 fit = stats.lm(f, df, **fit_kwargs)
         elif family in ('binomial', 'poisson'):
             if random_effect:
-                control = lme4.glmerControl(**{'optimizer': 'nloptwrap', 
-                                               'calc.derivs': True,
-                                               'check.rankX': 'silent.drop.cols',
-                                               'check.conv.singular': r('lme4::.makeCC')(action = "ignore",  tol = 1e-4)})
-
-                #control = lme4.glmerControl(**{'check.rankX': 'silent.drop.cols',
-                #                               'check.conv.singular': r('lme4::.makeCC')(action = "ignore",  tol = 1e-4)})
+                if optimizer == 'nloptwrap':
+                    control = lme4.glmerControl(**{'optimizer': 'nloptwrap',
+                                                   'calc.derivs': True,
+                                                   'check.rankX': 'silent.drop.cols',
+                                                   'check.conv.singular': r('lme4::.makeCC')(action = "ignore",  tol = 1e-4)})
+                else:
+                    control = lme4.glmerControl(**{'check.rankX': 'silent.drop.cols',
+                                                   'check.conv.singular': r('lme4::.makeCC')(action = "ignore",  tol = 1e-4)})
 
                 fit = lme4.glmer(f, df, control=control, family=family, **fit_kwargs)
 
@@ -47,11 +48,14 @@ def fit_lme(formula, df, family='gaussian', random_effect=True, **fit_kwargs):
                 fit = stats.glm(f, df, family=family, **fit_kwargs)
         else:
             if random_effect:
-                control = lme4.glmerControl(**{'optimizer': 'nloptwrap', 
-                                   'calc.derivs': True,
-                                   'check.rankX': 'silent.drop.cols',
-                                   'check.conv.singular': r('lme4::.makeCC')(action = "ignore",  tol = 1e-4)})
-                fit = r('lme4::glmer.nb')(f, df, **{'nb.control': control}, **fit_kwargs)
+                if optimizer == 'nloptwrap':
+                    control = lme4.glmerControl(**{'optimizer': 'nloptwrap',
+                                       'calc.derivs': True,
+                                       'check.rankX': 'silent.drop.cols',
+                                       'check.conv.singular': r('lme4::.makeCC')(action = "ignore",  tol = 1e-4)})
+                    fit = r('lme4::glmer.nb')(f, df, **{'nb.control': control}, **fit_kwargs)
+                else:
+                    fit = r('lme4::glmer.nb')(f, df, **fit_kwargs)
             else:
                 fit = r('MASS::glm.nb')(f, df, **fit_kwargs)
         
@@ -71,8 +75,11 @@ def _fit(formula, gene, adata, obs_features, use_raw, family, random_effect):
     try:
         coefs, anova = fit_lme(formula, covariates, family=family, random_effect=random_effect)
     except RRuntimeError:
-        print('Exception in R...')
-        coefs, anova = None, None
+        try:
+            coefs, anova = fit_lme(formula, covariates, family=family, random_effect=random_effect, optimizer='default')
+        except RRuntimeError:
+            print(f'Exception in R... ({gene})')
+            coefs, anova = None, None
 
     return coefs, anova
 

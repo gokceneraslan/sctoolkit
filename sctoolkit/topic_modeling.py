@@ -27,6 +27,8 @@ def plot_topics(topics, figsize=(10, 4), scale='free', highlight=None, ncols=10,
                 facet_wrap('Topic', scales=scale, ncol=ncols) + 
                 theme_minimal() + 
                 theme(axis_text_x=element_text(rotation=90, hjust=0.5), 
+                      panel_spacing_x=panel_spacing_x,
+                      panel_spacing_y=panel_spacing_y,
                       figure_size=figsize, **kwargs))
 
             
@@ -39,7 +41,10 @@ def plot_topics(topics, figsize=(10, 4), scale='free', highlight=None, ncols=10,
             qplot('Gene', 'Prob', data=df) + 
             facet_wrap('Topic', scales=scale, ncol=ncols) + 
             theme_minimal() + 
-            theme(figure_size=figsize, **kwargs) +                 #axis_text_x=element_text(rotation=90, hjust=1., size=7),
+            theme(figure_size=figsize,
+                  panel_spacing_x=panel_spacing_x,
+                  panel_spacing_y=panel_spacing_y,
+                  **kwargs) +                 #axis_text_x=element_text(rotation=90, hjust=1., size=7),
             coord_flip()
             )
         

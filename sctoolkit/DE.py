@@ -84,7 +84,7 @@ def _fit(formula, gene, adata, obs_features, use_raw, family, random_effect):
     return coefs, anova
 
 
-def fit_lme_adata(adata, genes, formula, obs_features, random_effect, family='gaussian', use_raw=False, n_jobs=4):
+def fit_lme_adata(adata, genes, formula, obs_features, random_effect, family='gaussian', use_raw=False, n_jobs=4, parallel=None):
 
     adata = adata.copy()
     for f in obs_features:
@@ -97,13 +97,16 @@ def fit_lme_adata(adata, genes, formula, obs_features, random_effect, family='ga
     if n_jobs == 1:
         para_result = [_fit(formula, x, adata, obs_features, use_raw, family,random_effect) for x in tqdm(genes)]
     else:    
-        para_result = Parallel(n_jobs=n_jobs)(delayed(_fit)(formula, 
-                                                            x, 
-                                                            adata,
-                                                            obs_features, 
-                                                            use_raw, 
-                                                            family,
-                                                            random_effect) for x in tqdm(genes))
+        if parallel is None:
+            parallel = Parallel(n_jobs=n_jobs) 
+        
+        para_result = parallel(delayed(_fit)(formula,
+                                             x,
+                                             adata,
+                                             obs_features,
+                                             use_raw,
+                                             family,
+                                             random_effect) for x in tqdm(genes))
     
     coef_df = {k:v[0] for k, v in zip(genes, para_result) if v[0] is not None}
     anova_df = {k:v[1] for k, v in zip(genes, para_result) if v[1] is not None}   

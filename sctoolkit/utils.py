@@ -2,11 +2,15 @@ import pandas as pd
 import scanpy as sc
 import numpy as np
 from plotnine import *
+import warnings
 
-def get_expression_per_group(ad, genes, groupby, threshold=0, use_raw=False, layer=None, long_form=True, scale_percent=True):
-    
-    if isinstance(groupby, str):
-        groupby = [groupby]
+def get_expression_per_group(ad, genes, groupby=None, groups=None, threshold=0, use_raw=False, layer=None, long_form=True, scale_percent=True):
+
+    if groups is not None:
+        assert isinstance(groups, dict), 'groups must be a dict'
+
+        for k,v in groups.items():
+            ad = ad[ad.obs[k].isin(v)]
     
     if layer is not None:
         x = ad[:, genes].copy().layers[layer].A
@@ -16,24 +20,36 @@ def get_expression_per_group(ad, genes, groupby, threshold=0, use_raw=False, lay
         x = ad[:, genes].copy().X.A
 
     x = pd.DataFrame(x, index=ad.obs.index, columns=genes)
-    key_df = sc.get.obs_df(ad, keys=groupby)
-    genedf = pd.concat([x, key_df], axis=1)
 
-    #genedf = sc.get.obs_df(ad, keys=[*groupby, *genes], use_raw=use_raw) #too slow
+    if groupby  is not None:
+        if isinstance(groupby, str):
+            groupby = [groupby]
         
-    grouped = genedf.groupby(groupby, observed=True)
+        key_df = sc.get.obs_df(ad, keys=groupby)
+        genedf = pd.concat([x, key_df], axis=1)
+
+        #genedf = sc.get.obs_df(ad, keys=[*groupby, *genes], use_raw=use_raw) #too slow
+            
+        grouped = genedf.groupby(groupby, observed=True)
+    else:
+        grouped = x
+
     percent_scaler = 100 if scale_percent else 1
-    
-    exp = grouped.agg(lambda x: np.nanmean(x[x>threshold])).fillna(0)
-    exp.index.name = None
-    percent = grouped.agg(lambda x: np.mean(x>threshold)*percent_scaler).fillna(0)
-    percent.index.name = None    
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        
+        exp = grouped.agg(lambda x: np.nanmean(x[x>threshold])).fillna(0)
+        percent = grouped.agg(lambda x: np.mean(x>threshold)*percent_scaler).fillna(0)
 
     if long_form:
-        percent = percent.reset_index().melt(id_vars=groupby, value_name='percent_expr', var_name='gene')
-        exp = exp.reset_index().melt(id_vars=groupby, value_name='mean_expr', var_name='gene')
-        df = percent.merge(exp)
-
+        if groupby is not None:
+            percent = percent.reset_index().melt(id_vars=groupby, value_name='percent_expr', var_name='gene')
+            exp = exp.reset_index().melt(id_vars=groupby, value_name='mean_expr', var_name='gene')
+            df = percent.merge(exp)
+        else:
+            df = pd.DataFrame(dict(percent_expr=percent, mean_expr=exp)).reset_index()
+            df.rename(columns={'names': 'gene'}, inplace=True)
         return df
     else:
         return exp.T, percent.T

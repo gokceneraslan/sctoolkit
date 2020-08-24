@@ -21,8 +21,10 @@ from .rtools import (
 def sctransform(
     adata: AnnData,
     regress_out: Sequence = ('log_umi',),
+    method='poisson',
     batch_key: Optional[str] = None,
     n_top_genes: int = 3000,
+    regress_out_nonreg: Optional[Sequence] = None,
     min_cells: int = 5,
     store_residuals: bool = False,
     correct_counts: bool = True,
@@ -118,8 +120,18 @@ def sctransform(
     assert isinstance(
         regress_out, collections.abc.Sequence
     ), 'regress_out is not a sequence'
+    
     obs_keys = [x for x in regress_out if x != 'log_umi']
     regress_out = py2r(np.array(regress_out))
+    if regress_out_nonreg is not None:
+        assert isinstance(
+            regress_out_nonreg, collections.abc.Sequence
+        ), 'regress_out_nonreg is not a sequence'
+
+        obs_keys += list(regress_out_nonreg)
+        regress_out_nonreg = py2r(np.array(regress_out_nonreg))
+    else:
+        regress_out_nonreg = rpy2.rinterface.NULL
 
     if batch_key is not None:
         obs_keys += [batch_key]
@@ -143,9 +155,11 @@ def sctransform(
         cell_attr=cell_attr,
         batch_var=batch_key,
         latent_var=regress_out,
+        latent_var_nonreg=regress_out_nonreg,
         residual_type=residual_type,
         return_cell_attr=True,
         min_cells=min_cells,
+        method=method,
         show_progress=verbose,
     )
 

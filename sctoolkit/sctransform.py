@@ -63,7 +63,7 @@ def sctransform(
         batch corrected and depth-normalized gene expression values. Due to potential
         high memory use for big matrices, they are not stored by default.
     correct_counts
-        Store corrected couunts in adata.layers['sct_corrected']. Default is True.
+        Store corrected counts in adata.layers['sct_corrected']. Default is True.
     verbose
         Show progress bar during normalization.
     inplace

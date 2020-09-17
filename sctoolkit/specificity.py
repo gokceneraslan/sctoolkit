@@ -2,6 +2,7 @@ from .utils import get_expression_per_group
 
 import numpy as np
 import pandas as pd
+from tqdm.auto import tqdm
 
 _eps = 1e-20
 
@@ -71,6 +72,37 @@ def get_gene_specificity_metrics(adata, group_key, group, reference='rest', gene
     adata.obs.drop('__specificity_temp', inplace=True, axis=1)
     
     res = pd.DataFrame({k: v(p.loc[:, group], 
-                             p.loc[:, f'Non-{group}']) for k,v in _all_spec_funcs.items()})
+                             p.loc[:, f'Non-{group}']) for k,v in tqdm(list(_all_spec_funcs.items()))})
     
     return res.assign(group=p.loc[:, group], nongroup=p.loc[:, f'Non-{group}'])
+
+
+def get_gene_specificity_metricsv2(adata, group_key, group=None, genes=None):
+
+    from scanpy.get import summarized_expression_df
+    
+    dfs = []
+    
+    adata._sanitize()
+    for group in tqdm(adata.obs[group_key].cat.categories):
+        
+        adata.obs['__specificity_temp'] = [x == group for x in adata.obs[group_key]]
+        adata.obs['__specificity_temp'] = adata.obs['__specificity_temp'].replace({False: 'nongroup', True: 'group'}).astype('category')
+        
+        df = summarized_expression_df(
+            adata,
+            var_names=genes,
+            groupby='__specificity_temp',
+            ops='fraction', 
+            long_format=False,
+        ).T.droplevel(0, axis=0)
+
+        res = pd.DataFrame({k: v(df.loc[:, 'group'], 
+                                 df.loc[:, 'nongroup']) for k,v in _all_spec_funcs.items()})
+        res['group'] = group
+        dfs.append(res)
+
+    adata.obs.drop('__specificity_temp', inplace=True, axis=1)
+    dfs = pd.concat(dfs, axis=0)
+    
+    return dfs

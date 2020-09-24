@@ -129,7 +129,7 @@ def run_spring(ad, key, groups=None, varm_key=None):
         dfs.append(df.assign(group=group))
 
     dfs = pd.concat(dfs, axis=0).reset_index(drop=True)
-    dfs['group'] = pd.Categorical(dfs.group, categories=adata.obs[key].cat.categories)
+    dfs['group'] = pd.Categorical(dfs.group, categories=ad.obs[key].cat.categories)
 
     if varm_key is None:
         varm_key = f'spring_{key}'

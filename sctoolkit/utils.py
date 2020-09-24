@@ -137,3 +137,22 @@ def run_spring(ad, key, groups=None, varm_key=None):
     ad.varm[varm_key] = dfs.pivot(index='names', values='spring_score', columns='group').loc[ad.var_names]
 
     return dfs
+
+
+def dotplot_spring(adata, key, groups=None, n_genes=10, update=False, *args, **kwargs):
+    if groups is None:
+        groups = adata.obs[key].cat.categories
+
+    if f'spring_{key}' in adata.varm_keys() and not update:
+        df = adata.varm[f'spring_leiden'].copy()
+        df.columns = df.columns.astype(str)
+        df = df.reset_index().melt(id_vars='index', value_name='spring_score')
+        df = df.rename(columns={'index': 'names'})
+        df.group = pd.Categorical(df.group, categories=adata.obs[key].cat.categories)
+        df = df.sort_values(['group', 'spring_score'], ascending=[True, False]).reset_index(drop=True)
+    else:
+        df = run_spring(adata, key, groups)
+
+    d = {k: df[df.group == k].names[:n_genes] for k in groups}
+
+    return sc.pl.dotplot(adata, var_names=d, groupby=key, *args, **kwargs)

@@ -130,7 +130,9 @@ def run_spring(ad, key, groups=None, varm_key=None):
 
     dfs = pd.concat(dfs, axis=0)
 
-    if varm_key is not None:
-        ad.varm[varm_key] = dfs.pivot(index='names', values='spring_score', columns='group').loc[ad.var_names]
+    if varm_key is None:
+        varm_key = f'spring_{key}'
+
+    ad.varm[varm_key] = dfs.pivot(index='names', values='spring_score', columns='group').loc[ad.var_names]
 
     return dfs

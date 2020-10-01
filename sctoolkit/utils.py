@@ -108,7 +108,7 @@ def plot_significance_dotplot(
     return g
 
 
-def run_spring(ad, key, groups=None, varm_key=None):
+def run_spring(ad, key, groups=None, varm_key=None, store_in_varm=False):
     from scrublet.helper_functions import rank_enriched_genes, sparse_zscore
     from scipy.sparse import issparse, csr_matrix
     from tqdm.auto import tqdm
@@ -131,10 +131,16 @@ def run_spring(ad, key, groups=None, varm_key=None):
     dfs = pd.concat(dfs, axis=0).reset_index(drop=True)
     dfs['group'] = pd.Categorical(dfs.group, categories=ad.obs[key].cat.categories)
 
-    if varm_key is None:
-        varm_key = f'spring_{key}'
+    if store_in_varm:
 
-    ad.varm[varm_key] = dfs.pivot(index='names', values='spring_score', columns='group').loc[ad.var_names]
+        if varm_key is None:
+            varm_key = f'spring_{key}'
+
+        varm = dfs.pivot(index='names', values='spring_score', columns='group').loc[ad.var_names]
+        varm.index.name = ad.var.index.name
+        varm.columns.name = None
+
+        ad.varm[varm_key] = varm
 
     return dfs
 

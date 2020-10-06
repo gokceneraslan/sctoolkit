@@ -152,9 +152,9 @@ def dotplot_spring(adata, key, groups=None, n_genes=10, update=False, *args, **k
     if f'spring_{key}' in adata.varm_keys() and not update:
         df = adata.varm[f'spring_{key}'].copy()
         df.columns = df.columns.astype(str)
-        df = df.reset_index().melt(id_vars='index', value_name='spring_score')
+        df = df.reset_index().melt(id_vars='index', value_name='spring_score', var_name='group')
         df = df.rename(columns={'index': 'names'})
-        df.group = pd.Categorical(df.group, categories=adata.obs[key].cat.categories)
+        df['group'] = pd.Categorical(df.group, categories=adata.obs[key].cat.categories)
         df = df.sort_values(['group', 'spring_score'], ascending=[True, False]).reset_index(drop=True)
     else:
         df = run_spring(adata, key, groups)

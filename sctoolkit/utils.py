@@ -1,6 +1,8 @@
 import pandas as pd
 import scanpy as sc
 import numpy as np
+from scipy.cluster.hierarchy import linkage, dendrogram
+
 from plotnine import *
 import warnings
 
@@ -162,3 +164,54 @@ def dotplot_spring(adata, key, groups=None, n_genes=10, update=False, *args, **k
     d = {k: df[df.group == k].names[:n_genes] for k in groups}
 
     return sc.pl.dotplot(adata, var_names=d, groupby=key, *args, **kwargs)
+
+
+def sort_by_correlation(mat, rows=True, metric='correlation', method='complete', optimal_ordering=True):
+    if not rows:
+        mat = mat.T
+    Z = linkage(mat, metric=metric, method=method, optimal_ordering=optimal_ordering)
+    dn = dendrogram(Z, no_plot=True)
+    return np.array([int(x) for x in dn['ivl']])
+
+
+def plot_enrichment(
+    genes,
+    num_pathways=20,
+    title='',
+    ordered=True,
+    cutoff=0.05,
+    sources=('GO:BP', 'HPA', 'REAC'),
+    organism='hsapiens',
+    return_df=False,
+):
+    en_df = sc.queries.enrich(genes, org=organism, gprofiler_kwargs=dict(no_evidences=False, ordered=ordered, all_results=True, user_threshold=cutoff, sources=sources))
+    en_df['name'] = en_df['name'].str.capitalize()
+    en_df['intersections'] = ['(' + ','.join(x[:3]) + ')' for x in en_df.intersections]
+    en_df['name'] = en_df['name'].astype(str) + ' ' + en_df['intersections'].astype(str)
+    en_df = en_df.drop_duplicates('name')[:num_pathways]
+    en_df['neglog10_pval'] = -np.log10(en_df['p_value'])
+    en_df['name'] = pd.Categorical(en_df['name'], categories=en_df['name'], ordered=True)
+
+    figsize = (7,len(en_df)/4)
+    text_start = (en_df.neglog10_pval.max()*0.01)
+
+    g = (
+        ggplot(en_df, aes(x='name', y='neglog10_pval')) +
+        geom_bar(aes(fill='significant'), stat='identity', color='#0f0f0f', size=0.1) +
+        geom_hline(yintercept=-np.log10(cutoff), size=0.05, color='black') +
+        geom_text(aes(x='name', y=text_start, label='name'), size=8, ha='left') +coord_flip() +
+        scale_x_discrete(limits=list(reversed(en_df.name.cat.categories))) +
+        scale_fill_manual({True:'#D3D3D3', False:'#efefef'}) +
+        theme_classic() +
+        theme(
+            figure_size=figsize, panel_spacing_x=1.,
+            axis_text_y = element_blank(),
+            legend_position = 'none',
+        ) +
+        labs(y='Gene Set Enrichment (-log10(adj. P value))', x='Pathways', title=title)
+    )
+
+    if not return_df:
+        return g
+    else:
+        return g, en_df

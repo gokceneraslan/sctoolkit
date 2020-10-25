@@ -1,0 +1,3 @@
+[submodule "sctoolkit/topicmodel"]
+	path = sctoolkit/topicmodel
+	url = git@github.com:gokceneraslan/hSBM_Topicmodel.git

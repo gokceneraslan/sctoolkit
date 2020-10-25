@@ -1,3 +1,6 @@
 [submodule "sctoolkit/topicmodel"]
 	path = sctoolkit/topicmodel
 	url = git@github.com:gokceneraslan/hSBM_Topicmodel.git
+[submodule "sctoolkit/disvae"]
+	path = sctoolkit/disvae
+	url = git@github.com:gokceneraslan/disentangling-vae.git

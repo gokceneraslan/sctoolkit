@@ -147,7 +147,7 @@ def run_spring(ad, key, groups=None, varm_key=None, store_in_varm=False):
     return dfs
 
 
-def dotplot_spring(adata, key, groups=None, n_genes=10, update=False, *args, **kwargs):
+def dotplot_spring(adata, key, groups=None, n_genes=10, spring_cutoff=None, update=False, *args, **kwargs):
     if groups is None:
         groups = adata.obs[key].cat.categories
 
@@ -161,7 +161,10 @@ def dotplot_spring(adata, key, groups=None, n_genes=10, update=False, *args, **k
     else:
         df = run_spring(adata, key, groups)
 
-    d = {k: df[df.group == k].names[:n_genes] for k in groups}
+    if spring_cutoff is None:
+        d = {k: df[df.group == k].names[:n_genes] for k in groups}
+    else:
+        d = {k: df[(df.group == k) & (df.spring_score>=spring_cutoff)].names for k in groups}
 
     return sc.pl.dotplot(adata, var_names=d, groupby=key, *args, **kwargs)
 

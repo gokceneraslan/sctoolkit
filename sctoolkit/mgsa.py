@@ -110,7 +110,7 @@ def get_go_gaf(organism='human', evidence=None, aspect=('P', 'F', 'C'), uniprot2
         all_symbols = r2py(r('rownames')(go_sets.slots['itemAnnotations']))
         term2index = {k: all_symbols[v-1].tolist() for k, v in term2index.items()}
         
-        df = pd.DataFrame(dict(term=list(term2index.keys())))
+        df = r2py(go_sets.slots['setAnnotations'])
         df['genes'] = term2index.values()
         
         return go_sets, df

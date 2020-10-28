@@ -99,7 +99,9 @@ def get_go_gaf(organism='human', evidence=None, aspect=('P', 'F', 'C'), uniprot2
         
         # use gene symbols instead of uniprot
         go_uni_ids = r2py(r('names')(go_sets.slots['itemName2ItemIndex']))
-        uniq_symbols = r('make.unique')(StrVector([uni2gene.get(x,x) for x in go_uni_ids]))
+        ext_symbols = r2py(go_sets.slots['itemAnnotations'].rx2('symbol')).astype(str)
+
+        uniq_symbols = r('make.unique')(StrVector([uni2gene.get(x,s) for x,s in zip(go_uni_ids, ext_symbols)]))
         set_names = r('`names<-`')
         go_sets.slots['itemName2ItemIndex'] = set_names(go_sets.slots['itemName2ItemIndex'], uniq_symbols)
         set_row_names = r('`rownames<-`')        

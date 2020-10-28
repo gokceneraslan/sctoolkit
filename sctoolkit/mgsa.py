@@ -5,6 +5,7 @@ from pathlib import Path
 import urllib.request
 import matplotlib.pyplot as plt
 from pyannotables import tables
+from plotnine import *
 
 from .rtools import py2r, r2py, r_is_installed, r_set_seed, rpy2_check
 
@@ -131,9 +132,26 @@ def plot_mgsa_diagnostics(res):
     return f
 
 
-def plot_mgsa(res, top=10, x='term'):
-    df = res['sets'].head(top).reset_index()
-    ax = df.plot(kind='scatter', x=x, y='estimate', figsize=(8,5), rot=90, color='#990E1D', title='Set posteriors')
-    ax = df.plot(kind='line', x=x, y='estimate', rot=90, color='#808080', ax=ax, legend=False)
-    
-    return ax
+def plot_mgsa(res, top=20, textwidth=40, x='term', figure_size=(5, 12), n_max_genes=5):
+    import textwrap
+
+    df = res['sets'].reset_index().copy().head(top)
+    cap_keep = lambda s: s[:1].upper() + s[1:]
+    df[x] = [cap_keep(s) for s in df[x]]
+    if 'intersection' in df.columns:
+        df[x] = df[x].astype(str) + ' (' + [','.join(i[:n_max_genes]) for i in df['intersection']] + ')'
+
+    if textwidth:
+        df[x] = [textwrap.fill(t, textwidth) for t in df[x]]
+
+    g = (
+        ggplot(aes(x=f'reorder({x}, estimate)', y='estimate'), df) +
+        geom_point(aes(size='inStudySet', fill='inPopulation')) +
+        theme_minimal() +
+        theme(figure_size=figure_size) +
+        scale_fill_distiller(palette='Reds', direction=1, trans='log10') +
+        labs(x='Pathway', y='Posterior probability', size='Intersection', fill='Term size') +
+        coord_flip()
+    )
+
+    return g

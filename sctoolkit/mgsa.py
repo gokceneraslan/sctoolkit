@@ -68,7 +68,7 @@ def mgsa(observed, sets, seed=0, alpha=None, beta=None, p=None, report_intersect
     return res
 
 
-def get_go_gaf(organism='human', evidence=None, aspect=('P', 'F', 'C'), uniprot2symbol=True):
+def get_go_gaf(organism='human', evidence=None, aspect=('P', 'F', 'C'), uniprot2symbol=True, return_df=False):
     
     gaf_url = f'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/{organism.upper()}/goa_{organism}.gaf.gz'
     if evidence is None:
@@ -104,7 +104,17 @@ def get_go_gaf(organism='human', evidence=None, aspect=('P', 'F', 'C'), uniprot2
         go_sets.slots['itemName2ItemIndex'] = set_names(go_sets.slots['itemName2ItemIndex'], uniq_symbols)
         set_row_names = r('`rownames<-`')        
         go_sets.slots['itemAnnotations'] = set_row_names(go_sets.slots['itemAnnotations'], uniq_symbols)
+
+    if return_df:
+        term2index = {k: r2py(v) for k,v in zip(r2py(r('names')(go_sets.slots['sets'])), go_sets.slots['sets'])}
+        all_symbols = r2py(r('rownames')(go_sets.slots['itemAnnotations']))
+        term2index = {k: all_symbols[v-1].tolist() for k, v in term2index.items()}
         
+        df = pd.DataFrame(dict(term=list(term2index.keys())))
+        df['genes'] = term2index.values()
+        
+        return go_sets, df
+
     return go_sets
 
 

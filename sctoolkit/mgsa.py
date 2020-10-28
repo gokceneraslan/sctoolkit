@@ -51,12 +51,11 @@ def mgsa(observed, sets, seed=0, alpha=None, beta=None, p=None, report_intersect
         print(f'{len(unmapped)} observation(s) could not be mapped... ({unmapped})')
     
     res_obj = mgsa.mgsa(StrVector(observed), sets, **kwds)
-    
     res = {
-        'sets': r2py(res_obj.slots['setsResults']).sort_values('estimate', ascending=False),
-        'alpha': r2py(res_obj.slots['alphaPost']),
-        'beta': r2py(res_obj.slots['betaPost']),
-        'p': r2py(res_obj.slots['pPost']),
+        'sets': r2py(res_obj.slots['setsResults']).sort_values('estimate', ascending=False).rename(columns={'std.error': 'se'}),
+        'alpha': r2py(res_obj.slots['alphaPost']).rename(columns={'std.error': 'se'}),
+        'beta': r2py(res_obj.slots['betaPost']).rename(columns={'std.error': 'se'}),
+        'p': r2py(res_obj.slots['pPost']).rename(columns={'std.error': 'se'}),
     }
     
     if report_intersection:
@@ -119,17 +118,22 @@ def get_go_gaf(organism='human', evidence=None, aspect=('P', 'F', 'C'), uniprot2
     return go_sets
 
 
-def plot_mgsa_diagnostics(res):
-    f, axs = plt.subplots(1, 3, figsize=(20,5))    
-    res['p'].plot(kind='scatter', x='value', y='estimate', ax=axs[0], title='p posterior', color='#990E1D')
-    res['alpha'].plot(kind='scatter', x='value', y='estimate', ax=axs[1], title='alpha posterior', color='#990E1D')
-    res['beta'].plot(kind='scatter', x='value', y='estimate', ax=axs[2], title='beta posterior', color='#990E1D')
+def plot_mgsa_diagnostics(res, figure_size = (15,3), x_spacing=1.):
 
-    res['p'].plot(kind='line', x='value', y='estimate', ax=axs[0], color='#808080', legend=False)
-    res['alpha'].plot(kind='line', x='value', y='estimate', ax=axs[1], color='#808080', legend=False)
-    res['beta'].plot(kind='line', x='value', y='estimate', ax=axs[2], color='#808080', legend=False)
-    
-    return f
+    df = pd.concat([res[x].assign(var=x) for x in ('p', 'beta', 'alpha')], axis=0)
+
+    g = (
+        ggplot(aes(x='value', y='estimate'), df) +
+        geom_path(color='gray') +
+        geom_point(size=2) +
+        geom_pointrange(aes(ymin='estimate-se', ymax='estimate+se')) +
+        facet_wrap('var', nrow=1, scales='free') +
+        theme_minimal() +
+        labs(x='', y='Posterior probability') +
+        theme(figure_size=figure_size, panel_spacing_x=x_spacing)
+    )
+
+    return g
 
 
 def plot_mgsa(res, top=20, textwidth=40, x='term', figure_size=(5, 12), n_max_genes=5):
@@ -146,6 +150,7 @@ def plot_mgsa(res, top=20, textwidth=40, x='term', figure_size=(5, 12), n_max_ge
 
     g = (
         ggplot(aes(x=f'reorder({x}, estimate)', y='estimate'), df) +
+        geom_pointrange(aes(ymin='estimate-se', ymax='estimate+se')) +
         geom_point(aes(size='inStudySet', fill='inPopulation')) +
         theme_minimal() +
         theme(figure_size=figure_size) +

@@ -120,7 +120,7 @@ def get_go_gaf(organism='human', evidence=None, aspect=('P', 'F', 'C'), uniprot2
 
 def plot_mgsa_diagnostics(res, figure_size = (15,3), x_spacing=1.):
 
-    df = pd.concat([res[x].assign(var=x) for x in ('p', 'beta', 'alpha')], axis=0)
+    df = pd.concat([res[var].assign(var=var+t) for var,t in zip(('p', 'beta', 'alpha'), (' (freq. active terms)', ' (FP prob)', ' (FN prob.)'))], axis=0)
 
     g = (
         ggplot(aes(x='value', y='estimate'), df) +
@@ -143,7 +143,7 @@ def plot_mgsa(res, top=20, textwidth=40, x='term', figure_size=(5, 12), n_max_ge
     cap_keep = lambda s: s[:1].upper() + s[1:]
     df[x] = [cap_keep(s) for s in df[x]]
     if 'intersection' in df.columns:
-        df[x] = df[x].astype(str) + ' (' + [','.join(i[:n_max_genes]) for i in df['intersection']] + ')'
+        df[x] = df[x].astype(str) + [' (' + ','.join(i[:n_max_genes]) + ')' if len(i)>0 else '' for i in df['intersection']]
 
     if textwidth:
         df[x] = [textwrap.fill(t, textwidth) for t in df[x]]

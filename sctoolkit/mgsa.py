@@ -18,6 +18,7 @@ import rpy2
 def mgsa(observed, sets, seed=0, alpha=None, beta=None, p=None, report_intersection=True, **kwds):
     r_is_installed('mgsa')
     mgsa = importr('mgsa')
+    observed = pd.Series(observed).unique()
     
     r_set_seed(seed)
 
@@ -46,9 +47,9 @@ def mgsa(observed, sets, seed=0, alpha=None, beta=None, p=None, report_intersect
     else:
         raise Exception('invalid set type')
 
-    unmapped = np.array(observed)[~np.isin(observed, r2py(r('names')(sets.slots['itemName2ItemIndex'])))]
+    unmapped = observed[~np.isin(observed, r2py(r('names')(sets.slots['itemName2ItemIndex'])))]
     if len(unmapped) > 0:
-        print(f'{len(unmapped)} observation(s) could not be mapped... ({unmapped})')
+        print(f'{len(unmapped)} observation(s) could not be mapped... ({",".join(unmapped[:10])})')
     
     res_obj = mgsa.mgsa(StrVector(observed), sets, **kwds)
     res = {
@@ -59,11 +60,14 @@ def mgsa(observed, sets, seed=0, alpha=None, beta=None, p=None, report_intersect
     }
     
     if report_intersection:
+
         term2index = {k: r2py(v) for k,v in zip(r2py(r('names')(sets.slots['sets'])), sets.slots['sets'])}
         all_symbols = r2py(r('rownames')(sets.slots['itemAnnotations']))
         term2index = {k: all_symbols[v-1].tolist() for k, v in term2index.items()}
 
-        res['sets']['intersection'] = [sorted(list(set(term2index[x]) & set(observed))) for x in res['sets'].index]
+        res['sets']['intersection'] = [observed[np.isin(observed, term2index[x])].tolist() for x in res['sets'].index]
+
+    res['observed'] = observed
 
     return res
 

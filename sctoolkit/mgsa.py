@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 import urllib.request
 import matplotlib.pyplot as plt
-from pyannotables import tables
 from plotnine import *
 
 from .rtools import py2r, r2py, r_is_installed, r_set_seed, rpy2_check
@@ -73,6 +72,7 @@ def mgsa(observed, sets, seed=0, alpha=None, beta=None, p=None, report_intersect
 
 
 def get_go_gaf(organism='human', evidence=None, aspect=('P', 'F', 'C'), uniprot2symbol=True, return_df=False):
+    from pyannotables import tables
     
     gaf_url = f'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/{organism.upper()}/goa_{organism}.gaf.gz'
     if evidence is None:
@@ -88,6 +88,8 @@ def get_go_gaf(organism='human', evidence=None, aspect=('P', 'F', 'C'), uniprot2
         go_sets = mgsa_r.readGAF(str(full_path), evidence=evidence, aspect=StrVector(aspect))
 
     if uniprot2symbol:
+        if callable(tables):
+            tables = tables()
         if organism == 'human':
             uni2gene = tables['homo_sapiens-GRCh38-ensembl100'].copy()
             uni2gene = uni2gene[~uni2gene['UniProtKB_Accession'].isnull()]

@@ -1,4 +1,5 @@
-from scipy.cluster.hierarchy import cut_tree, complete
+from scipy.cluster.hierarchy import cut_tree, linkage
+from scipy.spatial.distance import pdist
 from tqdm.auto import tqdm
 from math import floor
 from scipy.stats import zscore
@@ -23,28 +24,27 @@ def find_modules(
     if n_pcs is not None:
         print('Fitting PCA...')
         X = sc.pp.pca(adata, n_comps=n_pcs, copy=True).varm['PCs']
-        exp_df = pd.DataFrame(X, index=adata.var_names).T
-        print('Calculating the correlation matrix...')
-        corr_df = exp_df.corr(method=corr)
     else:
         if layer is None:
-            exp_df = pd.DataFrame(adata.X, columns=adata.var_names)
+            X = adata.X.T
         else:
-            exp_df = pd.DataFrame(adata.layers[layer], columns=adata.var_names)
-
-        print('Calculating the correlation matrix...')
-        corr_df = exp_df.corr(method=corr)
+            X = adata.layers[layer].T
 
     key_added = '' if key_added is None else '_' + key_added
-        
-    adata.varp[f'paris_corr_raw{key_added}'] = corr_df.copy()
 
-    corr_df[corr_df<corr_threshold] = 0
+    exp_df = pd.DataFrame(X.T, columns=adata.var_names)
+    corr_df = exp_df.corr(method=corr)
+
+    adata.varp[f'paris_corr_raw{key_added}'] = corr_df.copy()
+    
+    if corr_threshold is not None:
+        corr_df[corr_df<corr_threshold] = corr_threshold
+
     if corr_power is not None:
         corr_df = corr_df.pow(corr_power)
-        
-    adata.varp[f'paris_corr{key_added}'] = corr_df.values        
 
+    adata.varp[f'paris_corr{key_added}'] = corr_df.values
+    
     if method == 'paris':
         from sknetwork.hierarchy import Paris
         
@@ -54,9 +54,9 @@ def find_modules(
         corr_mat = sp.sparse.csr_matrix(corr_df.values)
         dendro = model.fit_transform(corr_mat)
         
-    elif method == 'complete':
-        print('Hierarchical clustering...')        
-        dendro = complete(corr_df.values)
+    else:
+        print('Hierarchical clustering...')  
+        dendro = linkage(corr_df.values, method=method)
     
     level_end = round(adata.n_vars/level_end_size)
     dfs = []
@@ -102,6 +102,7 @@ def find_modules(
         
     # remove empty levels
     empty_levels = [k for k,v in adata.uns[f'paris{key_added}']['module_dict'].items() if len(v) == 0]
+    print(f'{len(empty_levels)} empty levels found...')
     newp = adata.varm[f'paris_partitions{key_added}'].iloc[:, ~adata.varm[f'paris_partitions{key_added}'].columns.isin(empty_levels)]
     adata.varm[f'paris_partitions{key_added}'] = newp
     
@@ -109,11 +110,10 @@ def find_modules(
         del adata.uns[f'paris{key_added}']['module_dict'][l]
         
     print(f'{len(df[~(small_idx | dups_idx)])} total modules found.')
-    
     print('Calculating module dependencies...')
 
     deps = _calculate_module_dependencies(adata, paris_key=None if not key_added else key_added[1:])
-    adata.uns[f'paris{paris_key}']['module_dependencies'] = deps
+    adata.uns[f'paris{key_added}']['module_dependencies'] = deps
 
 
 def _build_module_dict(adata, level=None, paris_key=None):
@@ -132,7 +132,7 @@ def _build_module_dict(adata, level=None, paris_key=None):
     adata.uns[f'paris{paris_key}']['module_dict'] = final_dict
 
 
-def _calculate_module_dependencies(adata, paris_key=None):
+def _calculate_module_dependencies(adata, paris_key=None, only_upper=True):
     paris_key = '' if paris_key is None else '_' + paris_key
 
     df = pd.DataFrame(adata.uns[f'paris{paris_key}']['module_dict']).reset_index()
@@ -150,6 +150,13 @@ def _calculate_module_dependencies(adata, paris_key=None):
             if t.genes.issubset(cand.genes):
                 parents.append((t.level, t.module, tuple(t.genes), cand.level, cand.module, tuple(cand.genes)))
     df = pd.DataFrame(parents, columns=['child_level', 'child_module', 'child_genes', 'parent_level', 'parent_module', 'parent_genes'])
+    
+    if only_upper:
+        df['parent_size'] = [len(x) for x in df.parent_genes]
+        df = df.loc[df.groupby(['child_level', 'child_module'])['parent_size'].idxmin()]
+        df['child_level_int'] = [int(x.split('_')[1]) for x in df.child_level]
+        df = df.sort_values(['child_level_int', 'child_module']).reset_index(drop=True)
+    
     return df
 
 
@@ -227,7 +234,7 @@ def sort_module_dict(adata, level=None, paris_key=None, corr='pearson', layer=No
         l = l if str(l).startswith('level') else f'level_{l}'
         d = adata.uns[f'paris{paris_key}']['module_dict'][l]
         
-        for module in tqdm(d.keys(), leave=False):
+        for module in d.keys():
             genes = list(d[module])
             if len(genes) == 1:
                 continue

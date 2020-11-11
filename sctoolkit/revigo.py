@@ -3,7 +3,7 @@ def revigo(
     goterms,
     pvals=None,
     url='http://revigo.irb.hr',
-    cutoff='medium',
+    cutoff='small',
     isPValue='yes',
     whatIsBetter='higher',
     goSizes='0',
@@ -44,6 +44,8 @@ def revigo(
         csv_content = br.response.content.decode("utf-8")
 
         df = pd.read_csv(StringIO(csv_content))
+        df['neglog10'] = -df['log10 p-value']
+        df['frequency'] = [float(x[:-1]) for x in df['frequency']]
 
         return df
 
@@ -77,34 +79,37 @@ GO:0042273 1e-297'''
 
 
 def plot_revigo(
-    rev,
+    rev, 
     outline=2,
-    expand_points=(1.05, 1.2),
+    expand_points=(1.05, 1.2), 
     figure_size=(8,8),
     font_size=8,
     point_size=3,
+    point_alpha=0.7,
     palette='RdPu',
+    dispensability_cutoff=1.,
     show_all_labels=False,
 ):
 
     import plotnine as p9
     import matplotlib.patheffects as path_effects
-
-    rev['neglog10'] = -rev['log10 p-value']
+    
     pe = [path_effects.Stroke(linewidth=2, foreground='white'), path_effects.Normal()]
-    lbl_df = rev[rev.eliminated==0] if not show_all_labels else rev
+    lbl_df = rev[(rev.eliminated==0) & (rev.dispensability < dispensability_cutoff)] if not show_all_labels else rev
     g = (
-        p9.ggplot(p9.aes(x='plot_X', y='plot_Y'), data=rev) +
-        p9.geom_point(p9.aes(fill='neglog10'), color='black', size=point_size) +
+        p9.ggplot(p9.aes(x='plot_X', y='plot_Y'), data=rev) + 
+        p9.geom_point(p9.aes(fill='neglog10', size='frequency'), color='black', alpha=point_alpha) + 
         p9.geom_text(p9.aes(label='description'), data=lbl_df, size=font_size,
                      adjust_text={'expand_points': expand_points, 'arrowprops': {'arrowstyle': '-'}, 'x':rev.plot_X.values, 'y':rev.plot_Y.values},
-                     path_effects=pe) +
-        p9.theme_minimal() +
+                     path_effects=pe) + 
+        p9.theme_bw() + 
         p9.scale_fill_distiller(type='seq', palette=palette, direction=1) +
-        p9.labs(x='Semantic similarity space', y='', fill='-log10(adj. p-value)') +
-        p9.theme(figure_size=figure_size,
-              axis_text_x=p9.element_blank(),
-              axis_text_y=p9.element_blank())
+        p9.labs(x='Semantic similarity space', y='', fill='-log10(adj. p-value)', size='Term frequency') + 
+        p9.scale_size_continuous(range=(2, 7), trans='log10') +
+        p9.theme(figure_size=figure_size, 
+                 axis_text_x=p9.element_blank(),
+                 axis_text_y=p9.element_blank(),
+                 axis_ticks=p9.element_blank())
     )
-
+    
     return g

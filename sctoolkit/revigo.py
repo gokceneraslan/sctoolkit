@@ -113,3 +113,40 @@ def plot_revigo(
     )
     
     return g
+
+
+def enrich_and_simplify(
+    sets,
+    intersections=True,
+    sources=('GO:BP',),
+    organism='hsapiens',
+    reduce_limit=0,
+    **revigo_kwds
+):
+    from gprofiler import GProfiler
+
+    gprofiler = GProfiler(user_agent="scanpy", return_dataframe=True)
+    gprofiler_kwargs = {'no_evidences': not intersections, 'sources':sources}
+
+    df = gprofiler.profile(sets, organism=organism, **gprofiler_kwargs)
+    revs = {}
+
+    if reduce_limit is not None:
+        dfs = []
+        for q in df['query'].unique():
+            df_sub = df[df['query'] == q].copy()
+            go = df_sub.native.tolist()
+            pvals = df_sub.p_value.tolist()
+
+            if len(go) > reduce_limit:
+                r = revigo(go, pvals, **revigo_kwds)
+                revs[q] = r
+
+                r = r.rename(columns={'term_ID': 'native'}).drop(columns='description').assign(query=q)
+                dfs.append(df_sub.merge(r))
+            else:
+                dfs.append(df.assign(eliminated=0))
+
+        df = pd.concat(dfs, axis=0).reset_index(drop=True)
+
+    return df, revs

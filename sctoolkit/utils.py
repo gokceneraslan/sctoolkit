@@ -110,7 +110,7 @@ def plot_significance_dotplot(
     return g
 
 
-def run_spring(ad, key, groups=None, varm_key=None, store_in_varm=False):
+def run_spring(ad, key, groups=None, varm_key=None, store_in_varm=True):
     from scrublet.helper_functions import rank_enriched_genes, sparse_zscore
     from scipy.sparse import issparse, csr_matrix
     from tqdm.auto import tqdm
@@ -142,6 +142,8 @@ def run_spring(ad, key, groups=None, varm_key=None, store_in_varm=False):
         varm.index.name = ad.var.index.name
         varm.columns.name = None
 
+        # workaround for https://github.com/theislab/anndata/issues/459
+        ad.varm.dim_names = ad.var_names
         ad.varm[varm_key] = varm
 
     return dfs

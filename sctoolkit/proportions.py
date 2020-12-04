@@ -115,6 +115,7 @@ def plot_proportion_barplot(
     width_scale=1.,
     legend_position=(-0.3, 0.5),
     return_df=False,
+    normalize_by=None,
 ):
 
     import mizani
@@ -126,9 +127,16 @@ def plot_proportion_barplot(
     adata._sanitize()
 
     fill_dict = {k:v for k,v in zip(adata.obs[fill].cat.categories, adata.uns[f'{fill}_colors'])}
-    
-    df_level0 = pd.DataFrame(adata.obs.groupby([yaxis], observed=True).size(), columns=['counts'])
+
     df_level1 = pd.DataFrame(adata.obs.groupby([yaxis, fill] + ([fill_breakdown] if fill_breakdown else []), observed=True).size(), columns=['counts'])
+
+    if normalize_by:
+        scales = df_level1.reset_index().groupby(normalize_by)[['counts']].sum()
+        scales = scales.sum().div(scales)
+
+        df_level1 = df_level1.multiply(scales)
+
+    df_level0 = df_level1.reset_index().groupby(yaxis)[['counts']].sum()
     df = df_level1.div(df_level0, level=yaxis).reset_index()
     
     df[fill]  = pd.Categorical(df[fill], categories=reversed(adata.obs[fill].cat.categories))
@@ -276,6 +284,7 @@ def plot_proportion_barplot_with_ncells(
     height_scale=1., 
     width_scale=1.,
     legend_position=(-0.2, 0.5),
+    normalize_by=None,
 ):
     
     g1, df = plot_proportion_barplot(
@@ -291,6 +300,7 @@ def plot_proportion_barplot_with_ncells(
         width_scale=width_scale,
         legend_position=legend_position,
         return_df=True,
+        normalize_by=normalize_by,
     )
     
     g2 = plot_proportion_barplot_cellcounts(adata, yaxis)

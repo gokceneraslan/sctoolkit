@@ -72,6 +72,8 @@ def plot_significance_dotplot(
     dot_size_limit=10,
     width_scale=1.0,
     height_scale=1.0,
+    xlabel='',
+    ylabel='',
 ):
 
     from statsmodels.stats.multitest import multipletests
@@ -94,7 +96,7 @@ def plot_significance_dotplot(
         geom_point(aes(size=size, fill=fill, color=color))+
         scale_fill_distiller(type='div', limits=limit, name='Effect size') + 
         scale_color_manual(values=color_values) + 
-        labs(size = "-log10(adj. P value)", y=ycol, x=xcol, title=title) +
+        labs(size = "-log10(adj. P value)", y=ylabel if ylabel else ycol, x=xlabel if xlabel else xcol, title=title) +
         guides(size = guide_legend(reverse=True)) +
         theme_bw() +
         scale_size(range = (1,dot_size_limit)) +
@@ -220,3 +222,10 @@ def plot_enrichment(
         return g
     else:
         return g, en_df
+
+
+def knn2mnn(adata):
+    d = adata.uns['neighbors']['distances'] != 0.
+    mnn_mask = d.multiply(d.T)
+    adata.uns['neighbors']['distances'] = adata.uns['neighbors']['distances'].multiply(mnn_mask)
+    adata.uns['neighbors']['connectivities'] = adata.uns['neighbors']['connectivities'].multiply(mnn_mask)

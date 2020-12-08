@@ -2,6 +2,7 @@ import pandas as pd
 import scanpy as sc
 import numpy as np
 from scipy.cluster.hierarchy import linkage, dendrogram
+from scipy.stats import zscore
 
 from plotnine import *
 import warnings
@@ -119,13 +120,14 @@ def plot_significance_dotplot(
     return g
 
 
-def run_spring(ad, key, groups=None, varm_key=None, store_in_varm=True):
+def run_spring(ad, key, groups=None, varm_key=None, store_in_varm=True, layer=None):
     from scrublet.helper_functions import rank_enriched_genes, sparse_zscore
     from scipy.sparse import issparse, csr_matrix
     from tqdm.auto import tqdm
 
-    E = ad.X if issparse(ad.X) else csr_matrix(ad.X)
-    z = sparse_zscore(E)
+    E = ad.X if layer is None else ad.layers[layer]
+    sparse = issparse(E)
+    z = sparse_zscore(E).A if sparse else zscore(E, axis=0)
 
     if groups is None:
         groups = ad.obs[key].cat.categories
@@ -133,7 +135,7 @@ def run_spring(ad, key, groups=None, varm_key=None, store_in_varm=True):
     dfs = []
     for group in tqdm(groups):
         cell_mask = (ad.obs[key] == group).values
-        scores = z[cell_mask,:].mean(0).A.squeeze()
+        scores = z[cell_mask,:].mean(0).squeeze()
         o = np.argsort(-scores)
 
         df = pd.DataFrame(dict(names=ad.var_names[o], spring_score=scores[o]))

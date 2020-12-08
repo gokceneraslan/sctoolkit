@@ -481,3 +481,10 @@ def summarized_expression_df(
 
     return res
 
+
+def bin_pval(pvals):
+    return pd.cut(pvals,
+                  [0, 0.001, 0.01, 0.05, 0.1, 1],
+                  labels=['***', '**', '*', '.', ' '],
+                  include_lowest=True)
+

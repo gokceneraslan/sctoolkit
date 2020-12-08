@@ -1,4 +1,5 @@
 from .rtools import r2py, py2r
+from .utils import bin_pval
 
 import logging
 import numpy as np
@@ -6,7 +7,6 @@ import pandas as pd
 from plotnine import *
 from plotnine.data import diamonds as ddata
 import matplotlib.gridspec as gridspec
-
 
 
 def get_proportions_per_channel(adata, sample_key, proportion_key, covariates=None):
@@ -93,13 +93,6 @@ def dirichletreg(adata, sample_key, proportion_key, covariates, formula, onevsre
         return dr_df, coef_df
     else:
         return coef_df
-
-
-def bin_pval(pvals):
-    return pd.cut(pvals,
-                  [0, 0.001, 0.01, 0.05, 0.1, 1],
-                  labels=['***', '**', '*', '.', ' '],
-                  include_lowest=True)
 
 
 def plot_proportion_barplot(

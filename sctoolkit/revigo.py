@@ -127,6 +127,9 @@ def enrich_and_simplify(
 ):
     from gprofiler import GProfiler
 
+    if not isinstance(sets, dict):
+        sets = list(sets)
+
     gprofiler = GProfiler(user_agent="scanpy", return_dataframe=True)
     gprofiler_kwargs = {'no_evidences': not intersections, 'sources':sources}
 

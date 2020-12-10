@@ -1,3 +1,5 @@
+import pandas as pd
+
 # taken mostly from https://github.com/alexvpickering/revigoR/blob/master/inst/python/scrape_revigo.py
 def revigo(
     goterms,

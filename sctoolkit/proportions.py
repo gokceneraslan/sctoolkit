@@ -109,6 +109,8 @@ def plot_proportion_barplot(
     legend_position=(-0.3, 0.5),
     return_df=False,
     normalize_by=None,
+    format_x_as_percent=True,
+    remove_x_axis_ticks=False,
 ):
 
     import mizani
@@ -153,12 +155,16 @@ def plot_proportion_barplot(
     g = (
         ggplot(aes(x=yaxis, y='counts', fill=fill, group=fill), data=df) +
         geom_bar(position='fill', stat='identity', mapping=aes(color='_show_breakdown'), size=0.08) +
-        scale_y_continuous(labels=mizani.formatters.percent) +
+        (scale_y_continuous(labels=mizani.formatters.percent) if format_x_as_percent else geom_blank()) +
         coord_flip() +
         theme_minimal() +
-        theme(figure_size=(8*width_scale, 
-                           0.4*df[yaxis].nunique()*height_scale),
-             legend_position=legend_position) + 
+        theme(
+            figure_size=(8*width_scale, 
+                         0.4*df[yaxis].nunique()*height_scale),
+            legend_position=legend_position,
+            axis_text_x=element_blank() if remove_x_axis_ticks else None, 
+            axis_ticks_x=element_blank() if remove_x_axis_ticks else None, 
+            ) + 
         scale_color_manual(values={True: 'black', False: 'none'}) +
         scale_fill_manual(values=fill_dict) +        
         labs(x=yaxis_label, y=fill_label) +

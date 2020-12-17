@@ -249,16 +249,26 @@ def plot_proportion_barplot_single_categorical(
     return g
 
 
-def merge_ggplots(*plots, units, figsize):
+def merge_ggplots(*plots, figsize, units=None, orientation='horizontal'):
     
+    if units is None:
+        units = [1]*len(plots)
+
     # Empty plotnine figure to place the subplots on. Needs junk data (for backend "copy" reasons).
     fig = (ggplot()+geom_blank(data=ddata)+theme_void() + theme(figure_size=figsize)).draw()
 
-    # Create gridspec for adding subpanels to the blank figure
-    gs = gridspec.GridSpec(1,np.sum(units))
+    if orientation == 'horizontal':
+        # Create gridspec for adding subpanels to the blank figure
+        gs = gridspec.GridSpec(1,np.sum(units))
+    else:
+        gs = gridspec.GridSpec(np.sum(units), 1)
+
     prev = 0
     for p, u in zip(plots, np.cumsum(units)):
-        ax = fig.add_subplot(gs[0, prev:u])
+        if orientation == 'horizontal':
+            ax = fig.add_subplot(gs[0, prev:u])
+        else:
+            ax = fig.add_subplot(gs[prev:u, 0])
         prev = u
         _ = p._draw_using_figure(fig, [ax])
 

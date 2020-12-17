@@ -163,7 +163,8 @@ def plot_proportion_barplot(
                          0.4*df[yaxis].nunique()*height_scale),
             legend_position=legend_position,
             axis_text_x=element_blank() if remove_x_axis_ticks else None, 
-            axis_ticks_x=element_blank() if remove_x_axis_ticks else None, 
+            axis_ticks_major_x=element_blank() if remove_x_axis_ticks else None, 
+            axis_ticks_minor_x=element_blank() if remove_x_axis_ticks else None, 
             ) + 
         scale_color_manual(values={True: 'black', False: 'none'}) +
         scale_fill_manual(values=fill_dict) +        

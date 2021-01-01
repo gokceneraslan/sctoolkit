@@ -46,7 +46,8 @@ def revigo(
         csv_content = br.response.content.decode("utf-8")
 
         df = pd.read_csv(StringIO(csv_content))
-        df['neglog10'] = -df['log10 p-value']
+        if 'log10 p-value' in df.columns:
+            df['neglog10'] = -df['log10 p-value']
         df['frequency'] = [float(x[:-1]) for x in df['frequency']]
 
         return df

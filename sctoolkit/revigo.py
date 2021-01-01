@@ -93,14 +93,20 @@ def plot_revigo(
     dispensability_cutoff=1.,
     show_all_labels=False,
     text_column='name',
-    term_size_limit=9999,
+    term_size_limit=None,
 ):
 
     import plotnine as p9
     import matplotlib.patheffects as path_effects
     
     pe = [path_effects.Stroke(linewidth=2, foreground='white'), path_effects.Normal()]
-    lbl_df = rev[(rev.eliminated==0) & (rev.dispensability < dispensability_cutoff) & (rev.term_size<term_size_limit)] if not show_all_labels else rev
+    if not show_all_labels:
+        lbl_df = rev[(rev.eliminated==0) & (rev.dispensability < dispensability_cutoff)] 
+        if term_size_limit is not None:
+            lbl_df = lbl_df[lbl_df.term_size<term_size_limit]
+    else:
+        lbl_df = rev
+
     g = (
         p9.ggplot(p9.aes(x='plot_X', y='plot_Y'), data=rev) + 
         p9.geom_point(p9.aes(fill='neglog10', size='frequency'), color='black', alpha=point_alpha) + 

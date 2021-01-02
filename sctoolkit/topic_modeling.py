@@ -11,10 +11,10 @@ from .topicmodel.sbmtm import sbmtm
 from .utils import sort_by_correlation
 
 
-def plot_topic(topic, n_genes=15):
+def plot_topic(topic, n_genes=15, geom='auto'):
     df = pd.DataFrame(topic[:n_genes], columns=['Gene', "Prob"])
     df.Gene = df.Gene.astype('category').cat.reorder_categories(df.Gene, ordered=True )
-    return qplot('Gene', 'Prob', data=df) + theme_minimal() +  theme(axis_text_x=element_text(rotation=90, hjust=1))
+    return qplot('Gene', 'Prob', data=df, geom=geom, stat='identity') + theme_minimal() +  theme(axis_text_x=element_text(rotation=90, hjust=1))
 
 
 def plot_topics(topics, figsize=(25, 15), scale='free', highlight=None, ncols=10, panel_spacing_x=1., panel_spacing_y=1., x_label_map=None, **kwargs):

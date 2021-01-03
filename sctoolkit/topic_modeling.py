@@ -11,13 +11,13 @@ from .topicmodel.sbmtm import sbmtm
 from .utils import sort_by_correlation
 
 
-def plot_topic(topic, n_genes=15, geom='auto'):
+def plot_topic(topic, n_genes=15, geom='auto', stat='identity'):
     df = pd.DataFrame(topic[:n_genes], columns=['Gene', "Prob"])
     df.Gene = df.Gene.astype('category').cat.reorder_categories(df.Gene, ordered=True )
-    return qplot('Gene', 'Prob', data=df, geom=geom, stat='identity') + theme_minimal() +  theme(axis_text_x=element_text(rotation=90, hjust=0.5, vjust=1.))
+    return qplot('Gene', 'Prob', data=df, geom=geom, stat=stat) + theme_minimal() +  theme(axis_text_x=element_text(rotation=90, hjust=0.5, vjust=1.))
 
 
-def plot_topics(topics, figsize=(25, 15), scale='free', highlight=None, ncols=10, panel_spacing_x=1., panel_spacing_y=1., x_label_map=None, **kwargs):
+def plot_topics(topics, figsize=(25, 15), scale='free', highlight=None, ncols=10, panel_spacing_x=1., panel_spacing_y=1., x_label_map=None, geom='point', stat='identity', **kwargs):
 
     if isinstance(topics, sc.AnnData):
         topics = get_topic_dict(topics)
@@ -36,7 +36,7 @@ def plot_topics(topics, figsize=(25, 15), scale='free', highlight=None, ncols=10
             raise ValueError
         
         df['Gene'] = df.Gene.astype('category').cat.reorder_categories(df.Gene, ordered=True )
-        return (qplot('Gene', 'Prob', data=df, color='Highlight') + 
+        return (qplot('Gene', 'Prob', data=df, color='Highlight', geom=geom, stat=stat) + 
                 facet_wrap('Topic', scales=scale, ncol=ncols) + 
                 theme_minimal() + 
                 theme(axis_text_x=element_text(rotation=90, hjust=0.5), 
@@ -51,7 +51,7 @@ def plot_topics(topics, figsize=(25, 15), scale='free', highlight=None, ncols=10
         df['Gene'] = df.Gene.astype(x_reversed)
         
         g = (
-            qplot('Gene', 'Prob', data=df) + 
+            qplot('Gene', 'Prob', data=df, geom=geom, stat=stat) + 
             facet_wrap('Topic', scales=scale, ncol=ncols) + 
             theme_minimal() + 
             theme(figure_size=figsize,

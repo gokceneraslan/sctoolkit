@@ -1,5 +1,4 @@
 from scipy.cluster.hierarchy import cut_tree, linkage
-from scipy.spatial.distance import pdist
 from tqdm.auto import tqdm
 from math import floor
 from scipy.stats import zscore
@@ -21,38 +20,46 @@ def find_modules(
     corr='pearson',
     corr_threshold=0,
     corr_power=2,
-    method='complete',
+    method='paris',
+    metric='correlation',
     smallest_module=3,
     key_added=None,
 ):
     
     if n_pcs is not None:
         print('Fitting PCA...')
-        X = sc.pp.pca(adata, n_comps=n_pcs, copy=True).varm['PCs']
+        X = sc.pp.pca(adata, n_comps=n_pcs, copy=True).varm['PCs'].T
     else:
         if layer is None:
-            X = adata.X.T
+            X = adata.X
         else:
-            X = adata.layers[layer].T
+            X = adata.layers[layer]
+        X = X.A if sp.sparse.issparse(X) else X
 
     key_added = '' if key_added is None else '_' + key_added
-
-    exp_df = pd.DataFrame(X.T, columns=adata.var_names)
-    corr_df = exp_df.corr(method=corr)
-
-    adata.varp[f'paris_corr_raw{key_added}'] = corr_df.copy()
-    
-    if corr_threshold is not None:
-        corr_df[corr_df<corr_threshold] = corr_threshold
-
-    if corr_power is not None:
-        corr_df = corr_df.pow(corr_power)
-
-    adata.varp[f'paris_corr{key_added}'] = corr_df.values
     
     if method == 'paris':
         from sknetwork.hierarchy import Paris
         
+        if corr == 'pearson':
+            corr_df = np.corrcoef(X, rowvar=False)
+        elif corr == 'spearman':
+            corr_df = sp.stats.spearmanr(X)[0]
+        else:
+            raise ValueError('Unknown corr')
+
+        corr_df = pd.DataFrame(corr_df, columns=adata.var_names, index=adata.var_names)
+
+        adata.varp[f'paris_corr_raw{key_added}'] = corr_df.copy()
+
+        if corr_threshold is not None:
+            corr_df[corr_df<corr_threshold] = corr_threshold
+
+        if corr_power is not None:
+            corr_df = corr_df.pow(corr_power)
+
+        adata.varp[f'paris_corr{key_added}'] = corr_df.values
+
         print('Fitting the Paris model...')
         # TODO: consider BiParis on the tp10k matrix
         model = Paris()
@@ -60,8 +67,8 @@ def find_modules(
         dendro = model.fit_transform(corr_mat)
         
     else:
-        print('Hierarchical clustering...')  
-        dendro = linkage(corr_df.values, method=method)
+        print('Hierarchical clustering...')
+        dendro = linkage(X.T, method=method, metric=metric)
     
     level_end = round(adata.n_vars/level_end_size)
     dfs = []

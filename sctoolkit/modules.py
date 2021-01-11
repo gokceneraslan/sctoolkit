@@ -5,6 +5,11 @@ from math import floor
 from scipy.stats import zscore
 from natsort import natsorted
 
+import scanpy as sc
+import pandas as pd
+import numpy as np
+import scipy as sp
+
 
 def find_modules(
     adata,
@@ -69,7 +74,7 @@ def find_modules(
     
     print('Cutting trees :( ...')
     cl = cut_tree(dendro, n_clusters=n_cl_list)
-    dfs = pd.DataFrame(cl.astype(str), index=ad.var_names, columns=[f'level_{i}' for i in range(len(n_cl_list))])
+    dfs = pd.DataFrame(cl.astype(str), index=adata.var_names, columns=[f'level_{i}' for i in range(len(n_cl_list))])
     assert np.all(dfs.nunique().values == n_cl_list)
 
     for key in dfs.columns:

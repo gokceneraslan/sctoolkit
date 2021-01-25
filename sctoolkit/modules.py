@@ -8,11 +8,12 @@ import scanpy as sc
 import pandas as pd
 import numpy as np
 import scipy as sp
+from joblib import Parallel, delayed
 
 
 def find_modules(
     adata,
-    n_levels=1000,
+    n_levels=100,
     level_start=2,
     level_end_size=2,
     n_pcs=100,
@@ -20,7 +21,7 @@ def find_modules(
     corr='pearson',
     corr_threshold=0,
     corr_power=2,
-    method='paris',
+    method='complete',
     metric='correlation',
     smallest_module=3,
     key_added=None,
@@ -172,13 +173,17 @@ def _calculate_module_dependencies(adata, paris_key=None, only_upper=True):
     return df
 
 
-def tag_with_score(adata, key, level=None, zcutoff=2.0, layer=None, paris_key=None):
+def tag_with_score(adata, key, level=None, zcutoff=2.0, layer=None, paris_key=None, n_jobs=None):
     ad = adata.copy()
-    paris_key = '' if paris_key is None else '_' + paris_key
-    assert key in adata.obs_keys()
     
-    if layer is not None:
-        ad.X = ad.layers[layer] #sc.tl.score_genes doesn't suppert layers
+    # recalculate scaled expr. without max_value, even if it exists
+    ad.layers['scaled'] = ad.X.copy()
+    sc.pp.scale(ad, layer='scaled')
+
+    paris_key = '' if paris_key is None else '_' + paris_key
+    
+    #if layer is not None:
+    #    ad.X = ad.layers[layer] #sc.tl.score_genes doesn't suppert layers
 
     if level is None:
         level = adata.varm[f'paris_partitions{paris_key}'].columns.tolist()
@@ -188,42 +193,65 @@ def tag_with_score(adata, key, level=None, zcutoff=2.0, layer=None, paris_key=No
 
     if isinstance(key, str):
         key = [key]
+
+    for k in key:
+        assert k in adata.obs_keys()
         
     print('Scoring all modules...')
     
     d = adata.uns[f'paris{paris_key}']['module_dict']
     
-    result = []
-    for l in tqdm(level):
+    def _task(l):
         l = l if str(l).startswith('level') else f'level_{l}'
         
         clusters = d[l]
-        dfs = []
+        score_df = []
+        zscore_df = []
         for cluster in clusters.keys():
             genes = list(clusters[cluster])
             if len(genes) == 1:
-                score = ad.obs_vector(genes[0], layer=layer)
+                score = ad.obs_vector(genes[0], layer='scaled')
+                raw_zscore = score
             else:
                 ctrl_size = np.maximum(50, len(genes))
                 sc.tl.score_genes(ad, genes, score_name='sc', ctrl_size=ctrl_size)
                 score = ad.obs.sc.values.copy()
-            score = zscore(score)
-            dfs.append(pd.DataFrame(score, index=adata.obs_names, columns=[cluster]))
+                score = zscore(score)
+                raw_zscore = ad[:, genes].layers['scaled'].toarray().mean(1)
 
-        class_df = pd.concat(dfs, axis=1)
-        adata.obsm[f'paris_scores{paris_key}_{l}'] = class_df
+            score_df.append(pd.DataFrame(score, index=adata.obs_names, columns=[cluster]))
+            zscore_df.append(pd.DataFrame(raw_zscore, index=adata.obs_names, columns=[cluster]))
+
+        score_df = pd.concat(score_df, axis=1) # cell by module df for level l
+        zscore_df = pd.concat(zscore_df, axis=1) # cell by module df for level l
+
+        adata.obsm[f'paris_scores{paris_key}_{l}'] = score_df
+        adata.obsm[f'paris_scores_zscore{paris_key}_{l}'] = zscore_df
         
+        task_result = []
         for k in key:
-            cdf = class_df.groupby(ad.obs[k]).mean()
-            cdf = cdf.reset_index().melt(id_vars=k, var_name='module', value_name='zscore')
+            cdf1 = score_df.groupby(adata.obs[k]).mean()
+            cdf2 = zscore_df.groupby(adata.obs[k]).mean()
+
+            cdf1 = cdf1.reset_index().melt(id_vars=k, var_name='module', value_name='score').set_index([k, 'module'])
+            cdf2 = cdf2.reset_index().melt(id_vars=k, var_name='module', value_name='zscore').set_index([k, 'module'])
+            cdf = cdf1.join(cdf2).reset_index()
+
             cdf[k] = pd.Categorical(cdf[k], categories=ad.obs[k].cat.categories)
             cdf.rename(columns={k: 'category'}, inplace=True)
             cdf['module'] = pd.Categorical(cdf['module'], categories=clusters.keys())
             cdf = cdf[cdf.zscore>zcutoff].sort_values(['module', 'category']).reset_index(drop=True)
             cdf = cdf.assign(level=l, key=k)
-            cdf = cdf[['key', 'category', 'level', 'module', 'zscore']]
-            result.append(cdf)
+            cdf = cdf[['key', 'category', 'level', 'module', 'score', 'zscore']]
+            task_result.append(cdf)
+            
+        return pd.concat(task_result, axis=0).reset_index(drop=True)
         
+    if n_jobs is None:
+        result = [_task(l) for l in tqdm(level)]
+    else:
+        result = Parallel(n_jobs=n_jobs)(delayed(_task)(l) for l in tqdm(level))
+
     result = pd.concat(result, axis=0).reset_index(drop=True)
     adata.uns[f'paris{paris_key}']['score_tags'] = result
     

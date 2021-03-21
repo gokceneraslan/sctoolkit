@@ -138,7 +138,7 @@ def _build_module_dict(adata, level=None, paris_key=None):
     print('Building the module dictionary...')
     for i, l in enumerate(tqdm(level)):
         l = l if str(l).startswith('level') else f'level_{l}'
-
+        adata.varm[f'paris_partitions{paris_key}'].index.name = None
         d = adata.varm[f'paris_partitions{paris_key}'].reset_index().groupby(l)['index'].agg(tuple).to_dict()
         final_dict[l] = d
 

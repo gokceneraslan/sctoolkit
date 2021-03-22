@@ -29,7 +29,7 @@ def find_modules(
     
     if n_pcs is not None:
         print('Fitting PCA...')
-        X = sc.pp.pca(adata, n_comps=n_pcs, copy=True).varm['PCs'].T
+        X = sc.pp.pca(adata, n_comps=n_pcs, copy=True, use_highly_variable=False).varm['PCs'].T
     else:
         if layer is None:
             X = adata.X

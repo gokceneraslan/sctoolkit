@@ -154,7 +154,10 @@ def run_spring(ad, key, groups=None, varm_key=None, store_in_varm=True, layer=No
         varm.columns.name = None
 
         # workaround for https://github.com/theislab/anndata/issues/459
-        ad.varm.dim_names = ad.var_names
+        try:
+            ad.varm.dim_names = ad.var_names
+        except AttributeError:
+            pass
         ad.varm[varm_key] = varm
 
     return dfs

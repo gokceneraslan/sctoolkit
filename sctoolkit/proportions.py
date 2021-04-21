@@ -123,7 +123,14 @@ def plot_proportion_barplot(
 
     fill_dict = {k:v for k,v in zip(adata.obs[fill].cat.categories, adata.uns[f'{fill}_colors'])}
 
-    df_level1 = pd.DataFrame(adata.obs.groupby([yaxis, fill] + ([fill_breakdown] if fill_breakdown else []), observed=True).size(), columns=['counts'])
+    groupby = [yaxis, fill]
+    if fill_breakdown is not None and (fill_breakdown not in groupby):
+        groupby.append(fill_breakdown)
+    if normalize_by is not None and (normalize_by not in groupby):
+        print('normalizing by a factor that is not plotted, please make sure you want to do that.')
+        groupby.append(normalize_by)
+
+    df_level1 = pd.DataFrame(adata.obs.groupby(groupby, observed=True).size(), columns=['counts'])
 
     if normalize_by:
         scales = df_level1.reset_index().groupby(normalize_by)[['counts']].sum()

@@ -101,16 +101,18 @@ def plot_proportion_barplot(
     fill, 
     fill_breakdown=None,
     yaxis_label=None,
+    xaxis_label='Proportions',
     fill_label=None,
     percent_limit=5., 
     show_percent=True,
     height_scale=1., 
     width_scale=1.,
-    legend_position=(-0.3, 0.5),
+    legend_position=None,
     return_df=False,
     normalize_by=None,
     format_x_as_percent=True,
     remove_x_axis_ticks=False,
+    swap_axes=False,
 ):
 
     import mizani
@@ -131,6 +133,7 @@ def plot_proportion_barplot(
         groupby.append(normalize_by)
 
     df_level1 = pd.DataFrame(adata.obs.groupby(groupby, observed=True).size(), columns=['counts'])
+
 
     if normalize_by:
         scales = df_level1.reset_index().groupby(normalize_by)[['counts']].sum()
@@ -159,23 +162,28 @@ def plot_proportion_barplot(
     cs = df.sort_values([yaxis, fill], ascending=False).drop_duplicates([yaxis, fill]).groupby(yaxis, observed=True)['counts_coarse'].transform(pd.Series.cumsum)
     df['cumsum_mean'] = cs - df['counts_coarse'] + (df['counts_coarse']/2)        
 
+    figure_width = 8*width_scale
+    figure_height = 0.4*df[yaxis].nunique()*height_scale
+
+    if swap_axes:
+        figure_width, figure_height = figure_height, figure_width
+
     g = (
         ggplot(aes(x=yaxis, y='counts', fill=fill, group=fill), data=df) +
         geom_bar(position='fill', stat='identity', mapping=aes(color='_show_breakdown'), size=0.08) +
         (scale_y_continuous(labels=mizani.formatters.percent) if format_x_as_percent else geom_blank()) +
-        coord_flip() +
+        (coord_flip() if not swap_axes else geom_blank()) +
         theme_minimal() +
         theme(
-            figure_size=(8*width_scale, 
-                         0.4*df[yaxis].nunique()*height_scale),
+            figure_size=(figure_width, figure_height),
             legend_position=legend_position,
-            axis_text_x=element_blank() if remove_x_axis_ticks else None, 
+            axis_text_x=element_blank() if remove_x_axis_ticks else element_text(angle=90 if swap_axes else 0), 
             axis_ticks_major_x=element_blank() if remove_x_axis_ticks else None, 
             axis_ticks_minor_x=element_blank() if remove_x_axis_ticks else None, 
             ) + 
         scale_color_manual(values={True: 'black', False: 'none'}) +
         scale_fill_manual(values=fill_dict) +        
-        labs(x=yaxis_label, y=fill_label) +
+        labs(x=yaxis_label, y=xaxis_label, fill=fill_label) +
         guides(fill = guide_legend(reverse=True), color=None)
     )
 

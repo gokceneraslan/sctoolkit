@@ -101,6 +101,7 @@ def plot_proportion_barplot(
     fill, 
     fill_breakdown=None,
     yaxis_label=None,
+    y_label_func=None,
     xaxis_label='Proportions',
     fill_label=None,
     percent_limit=5., 
@@ -175,6 +176,7 @@ def plot_proportion_barplot(
         ggplot(aes(x=yaxis, y='counts', fill=fill, group=fill), data=df) +
         geom_bar(position='fill', stat='identity', mapping=aes(color='_show_breakdown'), size=0.08) +
         (scale_y_continuous(labels=mizani.formatters.percent) if format_x_as_percent else geom_blank()) +
+        (scale_x_discrete(labels=y_label_func) if y_label_func is not None else geom_blank()) +
         (coord_flip() if not swap_axes else geom_blank()) +
         theme_minimal() +
         theme(
@@ -183,6 +185,7 @@ def plot_proportion_barplot(
             axis_text_x=element_blank() if remove_x_axis_ticks else element_text(angle=90 if swap_axes else 0), 
             axis_ticks_major_x=element_blank() if remove_x_axis_ticks else None, 
             axis_ticks_minor_x=element_blank() if remove_x_axis_ticks else None, 
+            panel_grid_major=element_blank(), panel_grid_minor=element_blank(),
             ) + 
         scale_color_manual(values={True: 'black', False: 'none'}) +
         scale_fill_manual(values=fill_dict) +        

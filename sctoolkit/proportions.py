@@ -134,7 +134,6 @@ def plot_proportion_barplot(
 
     df_level1 = pd.DataFrame(adata.obs.groupby(groupby, observed=True).size(), columns=['counts'])
 
-
     if normalize_by:
         scales = df_level1.reset_index().groupby(normalize_by)[['counts']].sum()
         scales = scales.sum().div(scales)
@@ -145,7 +144,11 @@ def plot_proportion_barplot(
     df = df_level1.div(df_level0, level=yaxis).reset_index()
     
     df[fill]  = pd.Categorical(df[fill], categories=reversed(adata.obs[fill].cat.categories))
-    df[yaxis] = pd.Categorical(df[yaxis], categories=reversed(adata.obs[yaxis].cat.categories))
+    if swap_axes: #do not reverse order if swap_axes is given
+        rev_func = lambda x: x
+    else:
+        rev_func = reversed
+    df[yaxis] = pd.Categorical(df[yaxis], categories=rev_func(adata.obs[yaxis].cat.categories))
 
     df['counts_coarse'] = df.groupby([yaxis, fill], observed=True)['counts'].transform('sum')
     df['counts_coarse_round_percent'] = (df.counts_coarse*100).round().astype(int)

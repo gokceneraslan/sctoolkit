@@ -44,14 +44,17 @@ def get_proportions_per_channel(adata, sample_key, proportion_key, covariates=No
 
 
 def dirichletreg(adata, sample_key, proportion_key, covariates, formula, onevsrest_category=None, return_reg_input=False):
-
-    from rpy2.robjects import r, Formula
-    from rpy2.robjects.packages import importr
-    from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
-
     adata._sanitize()
     prop_df, covar_df = get_proportions_per_channel(adata, sample_key, proportion_key, covariates)
     dr_df = pd.concat([prop_df, covar_df], axis=1)
+
+    return dirichletreg_df(prop_df, covar_df, formula, onevsrest_category=onevsrest_category, return_reg_input=return_reg_input)
+
+
+def dirichletreg_df(prop_df, covar_df, formula, onevsrest_category=None, return_reg_input=False):
+    from rpy2.robjects import r, Formula
+    from rpy2.robjects.packages import importr
+    from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
 
     dr = importr('DirichletReg')
 

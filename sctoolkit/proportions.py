@@ -46,8 +46,6 @@ def get_proportions_per_channel(adata, sample_key, proportion_key, covariates=No
 def dirichletreg(adata, sample_key, proportion_key, covariates, formula, onevsrest_category=None, return_reg_input=False):
     adata._sanitize()
     prop_df, covar_df = get_proportions_per_channel(adata, sample_key, proportion_key, covariates)
-    dr_df = pd.concat([prop_df, covar_df], axis=1)
-
     return dirichletreg_df(prop_df, covar_df, formula, onevsrest_category=onevsrest_category, return_reg_input=return_reg_input)
 
 
@@ -57,6 +55,7 @@ def dirichletreg_df(prop_df, covar_df, formula, onevsrest_category=None, return_
     from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
 
     dr = importr('DirichletReg')
+    dr_df = pd.concat([prop_df, covar_df], axis=1)
 
     f = Formula(formula)
 
@@ -67,13 +66,15 @@ def dirichletreg_df(prop_df, covar_df, formula, onevsrest_category=None, return_
     if onevsrest_category is None:
         fit = dr.DirichReg(f, py2r(dr_df))
     else:
-        assert onevsrest_category in adata.obs[proportion_key].cat.categories
-        cat_index = adata.obs[proportion_key].cat.categories.tolist().index(onevsrest_category) + 1
+        assert onevsrest_category in prop_df.columns
+        cat_index = prop_df.columns.tolist().index(onevsrest_category) + 1
         fit = dr.DirichReg(f, py2r(dr_df), model='alternative', **{'sub.comp': cat_index})
 
-    r.sink(r.tempfile()) # quietly
+    r.sink(file='/dev/null')
     u = r.summary(fit)
     r.sink()
+    if r('sink.number')()[0]>0:
+        r.sink()
 
     if onevsrest_category is None:
         varnames = u.rx2('varnames')

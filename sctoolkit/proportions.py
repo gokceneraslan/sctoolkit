@@ -9,7 +9,10 @@ from plotnine.data import diamonds as ddata
 import matplotlib.gridspec as gridspec
 
 
-def get_proportions_per_channel(adata, sample_key, proportion_key, covariates=None):
+def get_proportions_per_channel(adata, sample_key, proportion_key, covariates=None, groups=None):
+
+    if groups is not None:
+        adata = adata[adata.obs[proportion_key].isin(groups)]
 
     prop_df = pd.DataFrame(adata.obs.groupby([sample_key, proportion_key]).size(), columns=['ncell']).reset_index()
 

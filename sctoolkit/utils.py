@@ -111,6 +111,7 @@ def plot_significance_dotplot(
         scale_y_discrete(drop=False) +
         #scale_x_discrete(drop=False) +
         theme(
+          text=element_text(family="Arial"),
           figure_size=(9*width_scale,12*height_scale),
           legend_key=element_blank(),
           axis_text_x = element_text(rotation=45, hjust=1.),

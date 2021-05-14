@@ -121,6 +121,7 @@ def plot_proportion_barplot(
     format_x_as_percent=True,
     remove_x_axis_ticks=False,
     swap_axes=False,
+    external_percent_label=None,
 ):
 
     import mizani
@@ -133,7 +134,7 @@ def plot_proportion_barplot(
 
     fill_dict = {k:v for k,v in zip(adata.obs[fill].cat.categories, adata.uns[f'{fill}_colors'])}
 
-    groupby = [yaxis, fill]
+    groupby = [yaxis, fill] + ([external_percent_label] if external_percent_label is not None else [])
     if fill_breakdown is not None and (fill_breakdown not in groupby):
         groupby.append(fill_breakdown)
     if normalize_by is not None and (normalize_by not in groupby):
@@ -187,6 +188,7 @@ def plot_proportion_barplot(
         (coord_flip() if not swap_axes else geom_blank()) +
         theme_minimal() +
         theme(
+            text=element_text(family="Arial"),
             figure_size=(figure_width, figure_height),
             legend_position=legend_position,
             axis_text_x=element_blank() if remove_x_axis_ticks else element_text(angle=90 if swap_axes else 0), 
@@ -201,7 +203,11 @@ def plot_proportion_barplot(
     )
 
     if show_percent:
-        g += geom_text(aes(label='counts_coarse_round_percent', y='cumsum_mean'), data=df[df._show_text],
+        if external_percent_label is not None:
+            label = external_percent_label
+        else:
+            label = 'counts_coarse_round_percent'
+        g += geom_text(aes(label=label, y='cumsum_mean'), data=df[df._show_text],
                   color='white', size=8, fontweight='bold',
                   path_effects=(pe.Stroke(linewidth=1, foreground='black'), pe.Normal()))
 
@@ -237,6 +243,12 @@ def plot_proportion_barplot_cellcounts(
         theme(figure_size=(1.*width_scale, 
                            0.4*df[yaxis].nunique()*height_scale),
               axis_text_y=element_blank(),
+              axis_text_x=element_blank(),
+              text=element_text(family="Arial"),
+              axis_ticks_major_x=element_blank(), 
+              axis_ticks_minor_x=element_blank(), 
+              panel_grid_major=element_blank(),
+              panel_grid_minor=element_blank(),
               legend_position=legend_position) +  
         labs(x=None, y='Cell counts', fill='Cell counts') +
         geom_text(aes(label='ncell', y=0.5),
@@ -276,6 +288,12 @@ def plot_proportion_barplot_single_categorical(
         theme(figure_size=(1.*width_scale, 
                            0.4*df[yaxis].nunique()*height_scale),
               axis_text_y=element_blank(),
+              axis_text_x=element_blank(),
+              text=element_text(family="Arial"),
+              axis_ticks_major_x=element_blank(), 
+              axis_ticks_minor_x=element_blank(), 
+              panel_grid_major=element_blank(),
+              panel_grid_minor=element_blank(),
               legend_position=legend_position) +  
         labs(x=None, y=fill, fill=fill) +
         scale_fill_manual(values=fill_dict)
@@ -323,6 +341,7 @@ def plot_proportion_barplot_with_ncells(
     width_scale=1.,
     legend_position=(-0.2, 0.5),
     normalize_by=None,
+    external_percent_label=None,
 ):
     
     g1, df = plot_proportion_barplot(
@@ -339,6 +358,7 @@ def plot_proportion_barplot_with_ncells(
         legend_position=legend_position,
         return_df=True,
         normalize_by=normalize_by,
+        external_percent_label=external_percent_label,
     )
     
     g2 = plot_proportion_barplot_cellcounts(adata, yaxis)
@@ -372,7 +392,15 @@ def plot_proportions(adata, sample_key, proportion_key, covariates, fill, return
         scale_fill_manual(values=color_dict) +
         labs(y='Proportions', x='', fill=fill) +
         theme_classic() +
-        theme(figure_size=(8*width_scale,6*height_scale), axis_text_x = element_text(angle = 45, hjust=1.))
+        theme(
+            text=element_text(family="Arial"),
+            figure_size=(8*width_scale,6*height_scale),
+            axis_ticks_major_x=element_blank(), 
+            axis_ticks_minor_x=element_blank(), 
+            panel_grid_major=element_blank(),
+            panel_grid_minor=element_blank(),
+            axis_text_x = element_text(angle = 45, hjust=1.),
+        )
     )
 
     if return_input_df:

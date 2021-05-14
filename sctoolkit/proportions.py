@@ -242,7 +242,7 @@ def plot_proportion_barplot_cellcounts(
         geom_text(aes(label='ncell', y=0.5),
                   color='white', size=8, fontweight='bold',
                   path_effects=(pe.Stroke(linewidth=1, foreground='black'), pe.Normal())) + 
-        scale_fill_continuous(trans='log10', cmap_name='magma')
+        scale_fill_continuous(trans='log10', cmap_name='magma', limits=(1, df.ncell.astype(float).max()))
     )
 
     return g

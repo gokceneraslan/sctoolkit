@@ -121,7 +121,12 @@ def plot_proportion_barplot(
     format_x_as_percent=True,
     remove_x_axis_ticks=False,
     swap_axes=False,
+<<<<<<< Updated upstream
     external_percent_label=None,
+=======
+    bar_position='fill',
+    fill_groups=None,
+>>>>>>> Stashed changes
 ):
 
     import mizani
@@ -181,8 +186,8 @@ def plot_proportion_barplot(
         figure_width, figure_height = figure_height, figure_width
 
     g = (
-        ggplot(aes(x=yaxis, y='counts', fill=fill, group=fill), data=df) +
-        geom_bar(position='fill', stat='identity', mapping=aes(color='_show_breakdown'), size=0.08) +
+        ggplot(aes(x=yaxis, y='counts', fill=fill, group=fill), data=df[df[fill].isin(fill_groups)] if fill_groups is not None else df) +
+        geom_bar(position=bar_position, stat='identity', mapping=aes(color='_show_breakdown'), size=0.08) +
         (scale_y_continuous(labels=mizani.formatters.percent) if format_x_as_percent else geom_blank()) +
         (scale_x_discrete(labels=y_label_func) if y_label_func is not None else geom_blank()) +
         (coord_flip() if not swap_axes else geom_blank()) +

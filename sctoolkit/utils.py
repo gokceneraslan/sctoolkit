@@ -159,6 +159,7 @@ def run_spring(ad, key, groups=None, varm_key=None, store_in_varm=True, layer=No
             ad.varm.dim_names = ad.var_names
         except AttributeError:
             pass
+        assert '/' not in varm_key, 'Dangerous key, remove "/" first from the key'
         ad.varm[varm_key] = varm
 
     return dfs

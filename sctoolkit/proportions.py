@@ -121,12 +121,9 @@ def plot_proportion_barplot(
     format_x_as_percent=True,
     remove_x_axis_ticks=False,
     swap_axes=False,
-<<<<<<< Updated upstream
     external_percent_label=None,
-=======
     bar_position='fill',
     fill_groups=None,
->>>>>>> Stashed changes
 ):
 
     import mizani
